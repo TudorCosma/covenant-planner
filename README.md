@@ -1,4 +1,4 @@
-# Covenant Wealth Australian Financial Planner
+# Covenant Wealth Australian Financial Planner -!!! DISCLAIMER!!! this is an educational tool only — not financial advice. This is not the finished tool, much of it is not working yet. 
 
 A comprehensive retirement planning tool built by Tudor Cosma CFP at Covenant Wealth.
 
