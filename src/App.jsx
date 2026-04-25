@@ -129,7 +129,7 @@ export default function App() {
 
       {/* Content */}
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "20px 20px 60px" }}>
-        {tab === "dashboard" && <DashboardTab state={state} projectionData={projectionData} afterProjectionData={afterProjectionData} afterState={afterState} scenario={scenario} setState={setState} setAfterState={setAfterState} />}
+        {tab === "dashboard" && <DashboardTab state={state} projectionData={projectionData} afterProjectionData={afterProjectionData} afterState={afterState} scenario={scenario} setState={setState} setAfterState={setAfterState} setTab={setTab} />}
         {tab === "personal" && <PersonalTab state={state} setState={setState} />}
         {tab === "income" && <IncomeTab state={activeState} setState={setActiveState} scenario={scenario} onActivateAfter={activateAfter} onActivateNow={activateNow} onResetAfter={resetAfter} afterState={afterState} />}
         {tab === "assets" && <AssetsTab state={activeState} setState={setActiveState} scenario={scenario} onActivateAfter={activateAfter} onActivateNow={activateNow} onResetAfter={resetAfter} afterState={afterState} />}

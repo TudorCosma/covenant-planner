@@ -4,3 +4,4 @@ export { boxMullerRandom } from './monteCarlo';
 export { calcDeprivedAssets, calcCentrelinkPension, calcDeemedIncome } from './centrelink';
 export { getMonthlyEquiv, calcLoanPayoff } from './loans';
 export { runProjection } from './projection';
+export { buildDeficitInfo } from './deficit';

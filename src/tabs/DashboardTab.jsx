@@ -4,9 +4,24 @@ import { COLORS, THEMES } from "../data/themes";
 import { TABS } from "../data/tabs";
 import { ASSET_LABELS, DEFAULT_RETURN_PROFILES, DEFAULT_ASSET_RETURNS } from "../data/returnProfiles";
 import { DEFAULT_TAX_BRACKETS_2024, DEFAULT_SUPER_PARAMS, DEFAULT_CENTRELINK, DEFAULT_MEDICARE } from "../data/tax2024";
-import { Input, DateInput, FYInput, Select, Card, StatCard, Btn, Modal, HeaderBtn, ScenarioToggle, ReturnSummary, FinancialAssistant } from "../components";
-import { fmt, pct, calcIncomeTax, calcMedicare, boxMullerRandom, calcDeprivedAssets, calcCentrelinkPension, calcDeemedIncome, getMonthlyEquiv, calcLoanPayoff, runProjection } from "../lib";
-export function DashboardTab({ state: nowState, projectionData: nowProjectionData, afterProjectionData, afterState, scenario, setState: setNowState, setAfterState }) {
+import { Input, DateInput, FYInput, Select, Card, StatCard, Btn, Modal, HeaderBtn, ScenarioToggle, ReturnSummary, FinancialAssistant, DeficitWarningBadge } from "../components";
+import { fmt, pct, calcIncomeTax, calcMedicare, boxMullerRandom, calcDeprivedAssets, calcCentrelinkPension, calcDeemedIncome, getMonthlyEquiv, calcLoanPayoff, runProjection, buildDeficitInfo } from "../lib";
+export function DashboardTab({ state: nowState, projectionData: nowProjectionData, afterProjectionData, afterState, scenario, setState: setNowState, setAfterState, setTab }) {
+  // Build deficit diagnostics for both scenarios so cards/charts can flag unsustainable plans.
+  // The "Value of Advice" tiles compare Now-vs-After, so flag if either has deficit years; the
+  // chart cards show the active scenario, so flag based on that one.
+  const nowDeficitInfo = useMemo(() => buildDeficitInfo(nowProjectionData, nowState), [nowProjectionData, nowState]);
+  const afterDeficitInfo = useMemo(() => afterState && afterProjectionData ? buildDeficitInfo(afterProjectionData, afterState) : null, [afterProjectionData, afterState]);
+  // Chart-card badges reflect ONLY the active scenario (no cross-scenario fallback) so the
+  // modal context (label, links, year data) always matches what the user is viewing.
+  const activeDeficitInfo = scenario === "after" ? afterDeficitInfo : nowDeficitInfo;
+  const activeDeficitState = scenario === "after" && afterState ? afterState : nowState;
+  const activeDeficitLabel = scenario === "after" ? "After Advice" : "Now";
+  // Value-of-Advice tiles compare Now-vs-After; they're meaningful only when an After
+  // scenario exists, so we flag based strictly on the After plan's sustainability.
+  const voaDeficitInfo = afterDeficitInfo;
+  const voaDeficitState = afterState;
+  const voaDeficitLabel = "After Advice";
   // Display the scenario the user is currently editing — Now or After Advice.
   // The Value of Advice card below still compares Now vs After explicitly via nowState/nowProjectionData.
   const state = scenario === "after" && afterState ? afterState : nowState;
@@ -673,8 +688,13 @@ export function DashboardTab({ state: nowState, projectionData: nowProjectionDat
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
               {allMetrics.map((m, i) => (
-                <div key={i} style={{ background: COLORS.card, borderRadius: 8, padding: "10px 12px", border: `1px solid ${m.display && m.isGood ? COLORS.green + "50" : m.display && !m.isGood ? COLORS.red + "40" : COLORS.border}` }}>
-                  <div style={{ color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 2 }}>{m.label}</div>
+                <div key={i} style={{ position: "relative", background: COLORS.card, borderRadius: 8, padding: "10px 12px", border: `1px solid ${voaDeficitInfo ? COLORS.red + "70" : m.display && m.isGood ? COLORS.green + "50" : m.display && !m.isGood ? COLORS.red + "40" : COLORS.border}` }}>
+                  {voaDeficitInfo && (
+                    <div style={{ position: "absolute", top: 6, right: 6 }}>
+                      <DeficitWarningBadge deficitInfo={voaDeficitInfo} state={voaDeficitState} setTab={setTab} scenarioLabel={voaDeficitLabel} size={14} title={`${voaDeficitLabel} scenario has unsustainable cashflow — this number may be unreliable. Click for details.`} />
+                    </div>
+                  )}
+                  <div style={{ color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 2, paddingRight: voaDeficitInfo ? 22 : 0 }}>{m.label}</div>
                   <div style={{ color: m.display ? m.color : COLORS.textDim, fontSize: 18, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", lineHeight: 1.2 }}>
                     {m.display || "—"}
                   </div>
@@ -806,7 +826,7 @@ export function DashboardTab({ state: nowState, projectionData: nowProjectionDat
         ))}
       </div>
 
-      <Card title="Asset Composition">
+      <Card title="Asset Composition" actions={<DeficitWarningBadge deficitInfo={activeDeficitInfo} state={activeDeficitState} setTab={setTab} scenarioLabel={activeDeficitLabel} size={14} />}>
         <ResponsiveContainer width="100%" height={180}>
           <PieChart>
             <Pie data={assetPie} dataKey="value" cx="50%" cy="50%" outerRadius={65} innerRadius={28} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={true} fontSize={10}>
@@ -817,7 +837,7 @@ export function DashboardTab({ state: nowState, projectionData: nowProjectionDat
         </ResponsiveContainer>
       </Card>
 
-      <Card title="Income Forecast">
+      <Card title="Income Forecast" actions={<DeficitWarningBadge deficitInfo={activeDeficitInfo} state={activeDeficitState} setTab={setTab} scenarioLabel={activeDeficitLabel} size={14} />}>
         <p style={{ color: COLORS.textDim, fontSize: 10, marginBottom: 6, marginTop: -4, fontFamily: "'DM Sans', sans-serif" }}>Tap any bar to see the full breakdown.</p>
         <ResponsiveContainer width="100%" height={240}>
           <BarChart data={forecastData} onClick={(e) => { if (e && e.activePayload) setSelectedYear(e.activePayload[0]?.payload?.year); }} style={{ cursor: "pointer" }}>
@@ -841,7 +861,7 @@ export function DashboardTab({ state: nowState, projectionData: nowProjectionDat
         const expandIcon = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={COLORS.accent} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 3 21 3 21 9" /><polyline points="9 21 3 21 3 15" /><line x1="21" y1="3" x2="14" y2="10" /><line x1="3" y1="21" x2="10" y2="14" /></svg>;
         return (
         <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 2 }}>
-          <Card title="Income vs Expenses" actions={<button onClick={() => setChartPopup("incomeVsExp")} style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}>{expandIcon}</button>}>
+          <Card title="Income vs Expenses" actions={<><DeficitWarningBadge deficitInfo={activeDeficitInfo} state={activeDeficitState} setTab={setTab} scenarioLabel={activeDeficitLabel} size={14} /><button onClick={() => setChartPopup("incomeVsExp")} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, marginLeft: 6 }}>{expandIcon}</button></>}>
             <ResponsiveContainer width="100%" height={160}>
               <ComposedChart data={d5}>
                 <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} />
@@ -856,7 +876,7 @@ export function DashboardTab({ state: nowState, projectionData: nowProjectionDat
             </ResponsiveContainer>
           </Card>
 
-          <Card title="Asset Breakdown" actions={<button onClick={() => setChartPopup("assetBreakdown")} style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}>{expandIcon}</button>}>
+          <Card title="Asset Breakdown" actions={<><DeficitWarningBadge deficitInfo={activeDeficitInfo} state={activeDeficitState} setTab={setTab} scenarioLabel={activeDeficitLabel} size={14} /><button onClick={() => setChartPopup("assetBreakdown")} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, marginLeft: 6 }}>{expandIcon}</button></>}>
             <ResponsiveContainer width="100%" height={170}>
               <AreaChart data={d5}>
                 <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} />
@@ -872,7 +892,7 @@ export function DashboardTab({ state: nowState, projectionData: nowProjectionDat
             </ResponsiveContainer>
           </Card>
 
-          <Card title="Centrelink Age Pension" actions={<button onClick={() => setChartPopup("agePension")} style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}>{expandIcon}</button>}>
+          <Card title="Centrelink Age Pension" actions={<><DeficitWarningBadge deficitInfo={activeDeficitInfo} state={activeDeficitState} setTab={setTab} scenarioLabel={activeDeficitLabel} size={14} /><button onClick={() => setChartPopup("agePension")} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, marginLeft: 6 }}>{expandIcon}</button></>}>
             <ResponsiveContainer width="100%" height={140}>
               <AreaChart data={d5}>
                 <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} />
@@ -885,11 +905,11 @@ export function DashboardTab({ state: nowState, projectionData: nowProjectionDat
             </ResponsiveContainer>
           </Card>
 
-          <Card title="Tax Breakdown" actions={<button onClick={() => setChartPopup("taxBreakdown")} style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}>{expandIcon}</button>}>
+          <Card title="Tax Breakdown" actions={<><DeficitWarningBadge deficitInfo={activeDeficitInfo} state={activeDeficitState} setTab={setTab} scenarioLabel={activeDeficitLabel} size={14} /><button onClick={() => setChartPopup("taxBreakdown")} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, marginLeft: 6 }}>{expandIcon}</button></>}>
             {renderTaxBreakdown(d5, 170)}
           </Card>
 
-          <Card title="Debt" actions={<button onClick={() => setChartPopup("debtChart")} style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}>{expandIcon}</button>}>
+          <Card title="Debt" actions={<><DeficitWarningBadge deficitInfo={activeDeficitInfo} state={activeDeficitState} setTab={setTab} scenarioLabel={activeDeficitLabel} size={14} /><button onClick={() => setChartPopup("debtChart")} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, marginLeft: 6 }}>{expandIcon}</button></>}>
             <ResponsiveContainer width="100%" height={140}>
               <AreaChart data={d5}>
                 <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} />
@@ -967,7 +987,7 @@ export function DashboardTab({ state: nowState, projectionData: nowProjectionDat
       })()}
 
       {projectionData.length > 0 && (
-        <Card title="Net Assets Over Time">
+        <Card title="Net Assets Over Time" actions={<DeficitWarningBadge deficitInfo={voaDeficitInfo} state={voaDeficitState} setTab={setTab} scenarioLabel={voaDeficitLabel} size={14} />}>
           <div className="flex gap-2" style={{ marginBottom: 14, flexWrap: "wrap" }}>
             <Btn small active={showInvestment} onClick={() => setShowInvestment(!showInvestment)} color={COLORS.green}>
               {showInvestment ? "✓" : ""} Net Investment Assets

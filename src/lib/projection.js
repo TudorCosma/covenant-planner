@@ -253,38 +253,66 @@ export function runProjection(state, useRandomReturns = false, seed = 0) {
     const deemedIncome = calcDeemedIncome(totalFinancialAssets, isCouple, legislation.centrelink);
     const agePension = calcCentrelinkPension(totalFinancialAssets, deemedIncome, isCouple, personal.isHomeowner, legislation.centrelink, age1, age2, grossEmploymentIncome, deprivedAssets);
 
-    // Loan repayments — calculated BEFORE tax so deductible interest can reduce taxable income
+    // Loan repayments — calculated BEFORE tax so deductible interest can reduce taxable income.
+    // Simulates each loan period-by-period at its actual payment frequency (weekly/fortnightly/
+    // monthly), matching the LiabilitiesTab "Payment Frequency Comparison" buttons (which use
+    // calcLoanPayoff). This ensures the dashboard's "Interest Saved on Debt" and "Debt-Free
+    // Sooner" tiles reflect the same savings the user sees on each loan card.
     const loanData = (assets.loans || []).map(loan => {
       const bal = loan.balance || 0;
-      if (bal <= 0) return { payment: 0, interest: 0, principal: 0, remaining: 0, deductible: loan.deductible, owner: loan.owner, p1Pct: loan.p1Pct ?? 50, p2Pct: loan.p2Pct ?? 50 };
-      const monthsElapsed = y * 12;
-      const fixedEnd = loan.fixedTermMonths || 0;
-      const rate = (monthsElapsed < fixedEnd && loan.fixedRate) ? (loan.fixedRate || 0) / 100 : (loan.variableRate || 0) / 100;
-      const monthlyRate = rate / 12;
+      const baseRet = { deductible: loan.deductible, owner: loan.owner, p1Pct: loan.p1Pct ?? 50, p2Pct: loan.p2Pct ?? 50 };
+      if (bal <= 0) return { payment: 0, interest: 0, principal: 0, remaining: 0, ...baseRet };
+
+      const freq = loan.frequency || "monthly";
+      const periodsPerYear = freq === "weekly" ? 52 : freq === "fortnightly" ? 26 : 12;
       const termMonths = loan.termMonths || 360;
-      const remainingMonths = Math.max(0, termMonths - monthsElapsed);
-      if (remainingMonths <= 0) return { payment: 0, interest: 0, principal: 0, remaining: 0, deductible: loan.deductible, owner: loan.owner, p1Pct: loan.p1Pct ?? 50, p2Pct: loan.p2Pct ?? 50 };
-      const initRate = (loan.fixedTermMonths > 0 && loan.fixedRate ? loan.fixedRate : loan.variableRate || 6) / 100 / 12;
-      const minMonthly = loan.repaymentType === "pi" ? (initRate > 0 ? (bal * initRate) / (1 - Math.pow(1 + initRate, -termMonths)) : bal / termMonths) : bal * initRate;
-      const extraMonthly = getMonthlyEquiv(loan.extraRepayment || 0, loan.frequency);
-      // Frequency multiplier — fortnightly/weekly result in 13 "monthly-equivalent" payments per year
-      // (26 fortnights × monthly/2 = 13 monthly; 52 weeks × monthly/4 = 13 monthly), giving an extra
-      // month's payment per year vs 12 monthly payments. This matches the Liabilities tab comparison.
-      const freqMult = (loan.frequency === "fortnightly" || loan.frequency === "weekly") ? 13 / 12 : 1;
-      const effectiveMonthlyPmt = minMonthly * freqMult;
-      const totalMonthlyPmt = effectiveMonthlyPmt + extraMonthly;
+      const fixedTermMonths = loan.fixedTermMonths || 0;
+      const totalPeriods = (termMonths / 12) * periodsPerYear;
+      const fixedPeriods = (fixedTermMonths / 12) * periodsPerYear;
+
+      // Use the same per-period payment convention as LiabilitiesTab + calcLoanPayoff:
+      // monthlyTotal = monthly minimum + monthly-equivalent extra; per-period = monthlyTotal / (4 weekly, 2 fortnightly, 1 monthly).
+      const initMonthlyRate = (fixedTermMonths > 0 && loan.fixedRate ? loan.fixedRate : loan.variableRate || 6) / 100 / 12;
+      const minMonthly = loan.repaymentType === "pi"
+        ? (initMonthlyRate > 0 ? (bal * initMonthlyRate) / (1 - Math.pow(1 + initMonthlyRate, -termMonths)) : bal / termMonths)
+        : bal * initMonthlyRate;
+      const monthlyExtra = getMonthlyEquiv(loan.extraRepayment || 0, freq);
+      const monthlyTotal = minMonthly + monthlyExtra;
+      const perPeriodPmt = freq === "weekly" ? monthlyTotal / 4 : freq === "fortnightly" ? monthlyTotal / 2 : monthlyTotal;
+
+      const startPeriod = y * periodsPerYear;
+      const endPeriod = startPeriod + periodsPerYear;
       let remaining = bal;
-      for (let m = 0; m < Math.min(monthsElapsed, termMonths); m++) {
-        const mRate = (m < fixedEnd && loan.fixedRate) ? (loan.fixedRate || 0) / 100 / 12 : (loan.variableRate || 0) / 100 / 12;
-        const intPmt = remaining * mRate;
-        if (loan.repaymentType !== "io") {
-          remaining = Math.max(0, remaining - Math.max(0, totalMonthlyPmt - intPmt));
+      let yearInterest = 0;
+      let yearPayments = 0;
+
+      for (let p = 0; p < endPeriod; p++) {
+        if (remaining <= 0.01 || p >= totalPeriods) break;
+        const annualRate = (p < fixedPeriods && loan.fixedRate) ? (loan.fixedRate / 100) : ((loan.variableRate || 0) / 100);
+        const periodRate = annualRate / periodsPerYear;
+        const intPmt = remaining * periodRate;
+        let actualPayment;
+        if (loan.repaymentType === "io") {
+          actualPayment = intPmt;
+        } else {
+          const targetPrincipal = Math.max(0, perPeriodPmt - intPmt);
+          const principal = Math.min(remaining, targetPrincipal);
+          actualPayment = intPmt + principal;
+          remaining = Math.max(0, remaining - principal);
+        }
+        if (p >= startPeriod) {
+          yearInterest += intPmt;
+          yearPayments += actualPayment;
         }
       }
-      const annualInterest = remaining * rate;
-      const annualPayment = loan.repaymentType === "io" ? annualInterest : Math.min(remaining + annualInterest, totalMonthlyPmt * 12);
-      const annualPrincipal = Math.max(0, annualPayment - annualInterest);
-      return { payment: annualPayment, interest: annualInterest, principal: annualPrincipal, remaining, deductible: loan.deductible, owner: loan.owner, p1Pct: loan.p1Pct ?? 50, p2Pct: loan.p2Pct ?? 50 };
+
+      return {
+        payment: yearPayments,
+        interest: yearInterest,
+        principal: Math.max(0, yearPayments - yearInterest),
+        remaining,
+        ...baseRet,
+      };
     });
     const liabilityPayments = loanData.reduce((s, l) => s + l.payment, 0);
     const totalDebtRemaining = loanData.reduce((s, l) => s + l.remaining, 0);

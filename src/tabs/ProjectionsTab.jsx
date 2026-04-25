@@ -4,8 +4,8 @@ import { COLORS, THEMES } from "../data/themes";
 import { TABS } from "../data/tabs";
 import { ASSET_LABELS, DEFAULT_RETURN_PROFILES, DEFAULT_ASSET_RETURNS } from "../data/returnProfiles";
 import { DEFAULT_TAX_BRACKETS_2024, DEFAULT_SUPER_PARAMS, DEFAULT_CENTRELINK, DEFAULT_MEDICARE } from "../data/tax2024";
-import { Input, DateInput, FYInput, Select, Card, StatCard, Btn, Modal, HeaderBtn, ScenarioToggle, ReturnSummary, FinancialAssistant } from "../components";
-import { fmt, pct, calcIncomeTax, calcMedicare, boxMullerRandom, calcDeprivedAssets, calcCentrelinkPension, calcDeemedIncome, getMonthlyEquiv, calcLoanPayoff, runProjection } from "../lib";
+import { Input, DateInput, FYInput, Select, Card, StatCard, Btn, Modal, HeaderBtn, ScenarioToggle, ReturnSummary, FinancialAssistant, DeficitWarningModal, DeficitWarningBadge } from "../components";
+import { fmt, pct, calcIncomeTax, calcMedicare, boxMullerRandom, calcDeprivedAssets, calcCentrelinkPension, calcDeemedIncome, getMonthlyEquiv, calcLoanPayoff, runProjection, buildDeficitInfo } from "../lib";
 export function ProjectionsTab({ state: nowState, setState: setNowState, setAfterState, projectionData: nowProjectionData, afterProjectionData, scenario, afterState, onActivateAfter, onActivateNow, onResetAfter, setTab }) {
   const [view, setView] = useState("chart");
   const [popup, setPopup] = useState(null); // null | "salaryP1" | "salaryP2" | "expenses" | "super" | "nonSuper" | "income"
@@ -18,63 +18,7 @@ export function ProjectionsTab({ state: nowState, setState: setNowState, setAfte
   // start fixing the problem. Shown once each time the user opens this tab.
   const deficitInfo = useMemo(() => {
     const data = scenario === "after" && afterProjectionData ? afterProjectionData : nowProjectionData;
-    if (!data || data.length === 0) return null;
-    const deficitRows = data.filter(r => (r.surplus || 0) < 0);
-    if (deficitRows.length === 0) return null;
-    const first = deficitRows[0];
-    const firstIdx = data.indexOf(first);
-    const prev = firstIdx > 0 ? data[firstIdx - 1] : null;
-    // Run length: count consecutive deficit years from the first one
-    let consecutive = 0;
-    for (let i = firstIdx; i < data.length; i++) {
-      if ((data[i].surplus || 0) < 0) consecutive++; else break;
-    }
-    // Income drop drivers (compare to previous year)
-    const drivers = [];
-    if (prev) {
-      const drop1 = (prev.p1Salary || 0) - (first.p1Salary || 0);
-      const drop2 = (prev.p2Salary || 0) - (first.p2Salary || 0);
-      const dropPension = (prev.agePension || 0) - (first.agePension || 0);
-      const dropDraws = ((prev.p1PensionDraw || 0) + (prev.p2PensionDraw || 0))
-                     - ((first.p1PensionDraw || 0) + (first.p2PensionDraw || 0));
-      if (drop1 > 1000) {
-        const retAge = state.personal?.person1?.retirementAge;
-        const reason = first.age1 >= (retAge || 0) && (prev.age1 < (retAge || 0)) ? ` (retires at age ${retAge})` : "";
-        drivers.push({ label: `${state.personal?.person1?.name || "Person 1"} salary drops by ${fmt(drop1)}${reason}`, kind: "income" });
-      }
-      if (state.personal?.isCouple && drop2 > 1000) {
-        const retAge = state.personal?.person2?.retirementAge;
-        const reason = first.age2 >= (retAge || 0) && (prev.age2 < (retAge || 0)) ? ` (retires at age ${retAge})` : "";
-        drivers.push({ label: `${state.personal?.person2?.name || "Person 2"} salary drops by ${fmt(drop2)}${reason}`, kind: "income" });
-      }
-      if (dropPension > 1000) drivers.push({ label: `Age Pension drops by ${fmt(dropPension)}`, kind: "income" });
-      if (dropDraws > 1000) drivers.push({ label: `Super pension drawdown drops by ${fmt(dropDraws)}`, kind: "income" });
-    }
-    // Expense drivers — items that start in this year (by startYear or saleYear)
-    const yr = first.year;
-    const expDrivers = [];
-    (state.expenses?.lifestyleExpenses || []).forEach(e => {
-      if (e.startYear === yr) expDrivers.push(`Lifestyle phase "${e.description}" begins (${fmt(e.amount)}/yr)`);
-    });
-    (state.expenses?.baseExpenses || []).forEach(e => {
-      if (e.startYear === yr) expDrivers.push(`Recurring expense "${e.description}" begins (${fmt(e.amount)}/yr)`);
-    });
-    (state.expenses?.futureExpenses || []).forEach(e => {
-      if (yr >= (e.startYear || 0) && yr <= (e.endYear || 0)) {
-        expDrivers.push(`One-off expense "${e.description}" hits this year (${fmt(e.amount)})`);
-      }
-    });
-    // Loan principal kicks in (e.g. interest-only ending) — flag big payment jump
-    if (prev && (first.liabilityPayments || 0) - (prev.liabilityPayments || 0) > 2000) {
-      expDrivers.push(`Loan repayments increase by ${fmt((first.liabilityPayments||0) - (prev.liabilityPayments||0))} this year`);
-    }
-    expDrivers.forEach(label => drivers.push({ label, kind: "expense" }));
-    return {
-      count: deficitRows.length,
-      consecutive,
-      first,
-      drivers,
-    };
+    return buildDeficitInfo(data, state);
   }, [nowProjectionData, afterProjectionData, scenario, state]);
   const [showDeficitWarning, setShowDeficitWarning] = useState(!!deficitInfo);
   // Re-show the warning when the user switches scenario (Now <-> After) within the
@@ -279,109 +223,15 @@ export function ProjectionsTab({ state: nowState, setState: setNowState, setAfte
 
   return (
     <div>
-      {showDeficitWarning && deficitInfo && (() => {
-        const f = deficitInfo.first;
-        const goTo = (t) => { setShowDeficitWarning(false); if (setTab) setTab(t); };
-        const linkStyle = { color: COLORS.accent, textDecoration: "underline", cursor: "pointer", background: "none", border: "none", padding: 0, font: "inherit" };
-        // Build income line items for the first deficit year
-        const incomeLines = [
-          f.p1Salary > 0 && [`${state.personal?.person1?.name || "Person 1"} salary`, f.p1Salary],
-          state.personal?.isCouple && f.p2Salary > 0 && [`${state.personal?.person2?.name || "Person 2"} salary`, f.p2Salary],
-          f.p1PensionDraw > 0 && [`${state.personal?.person1?.name || "Person 1"} super pension draw`, f.p1PensionDraw],
-          state.personal?.isCouple && f.p2PensionDraw > 0 && [`${state.personal?.person2?.name || "Person 2"} super pension draw`, f.p2PensionDraw],
-          f.agePension > 0 && ["Age Pension", f.agePension],
-        ].filter(Boolean);
-        return (
-        <Modal title="Unsustainable cashflow detected" onClose={() => setShowDeficitWarning(false)} width={620}>
-          <div style={{ fontFamily: "'DM Sans', sans-serif", color: COLORS.text, fontSize: 13, lineHeight: 1.55 }}>
-            <div style={{ background: `${COLORS.red}15`, border: `1px solid ${COLORS.red}50`, borderRadius: 8, padding: 14, marginBottom: 14 }}>
-              <strong style={{ color: COLORS.red, fontSize: 14 }}>Unsustainable spending based on income — reduce spending or increase income.</strong>
-            </div>
-            <p style={{ marginTop: 0 }}>
-              The first deficit appears in <strong>{f.year}</strong>
-              {state.personal?.isCouple
-                ? ` (when ${state.personal?.person1?.name || "P1"} is ${f.age1} and ${state.personal?.person2?.name || "P2"} is ${f.age2})`
-                : ` (when ${state.personal?.person1?.name || "P1"} is ${f.age1})`}
-              , and continues for <strong>{deficitInfo.consecutive} consecutive year{deficitInfo.consecutive === 1 ? "" : "s"}</strong>{" "}
-              (<strong>{deficitInfo.count}</strong> deficit year{deficitInfo.count === 1 ? "" : "s"} total across the projection).
-            </p>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
-              <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: 12 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: COLORS.textDim, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
-                  <button onClick={() => goTo("income")} style={linkStyle}>Income</button> — {f.year}
-                </div>
-                {incomeLines.length === 0 ? (
-                  <div style={{ fontSize: 12, color: COLORS.textMuted, fontStyle: "italic" }}>No income sources active</div>
-                ) : incomeLines.map(([label, amt]) => (
-                  <div key={label} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 3 }}>
-                    <span style={{ color: COLORS.textMuted }}>{label}</span>
-                    <span style={{ fontVariantNumeric: "tabular-nums" }}>{fmt(amt)}</span>
-                  </div>
-                ))}
-                <div style={{ borderTop: `1px solid ${COLORS.border}`, marginTop: 6, paddingTop: 6, display: "flex", justifyContent: "space-between", fontWeight: 600, fontSize: 12 }}>
-                  <span>Total income</span><span style={{ fontVariantNumeric: "tabular-nums" }}>{fmt(f.totalIncome)}</span>
-                </div>
-              </div>
-              <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: 12 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: COLORS.textDim, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
-                  <button onClick={() => goTo("expenses")} style={linkStyle}>Expenses</button> — {f.year}
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 3 }}>
-                  <span style={{ color: COLORS.textMuted }}>Living + recurring + one-off</span>
-                  <span style={{ fontVariantNumeric: "tabular-nums" }}>{fmt(f.totalExpenses - f.liabilityPayments)}</span>
-                </div>
-                {f.liabilityPayments > 0 && (
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 3 }}>
-                    <span style={{ color: COLORS.textMuted }}>Loan repayments</span>
-                    <span style={{ fontVariantNumeric: "tabular-nums" }}>{fmt(f.liabilityPayments)}</span>
-                  </div>
-                )}
-                <div style={{ borderTop: `1px solid ${COLORS.border}`, marginTop: 6, paddingTop: 6, display: "flex", justifyContent: "space-between", fontWeight: 600, fontSize: 12 }}>
-                  <span>Total expenses</span><span style={{ fontVariantNumeric: "tabular-nums" }}>{fmt(f.totalExpenses)}</span>
-                </div>
-              </div>
-            </div>
-
-            <div style={{ background: `${COLORS.red}10`, border: `1px solid ${COLORS.red}40`, borderRadius: 8, padding: 10, marginBottom: 14, display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 600 }}>
-              <span>Net (income − expenses) for {f.year}</span>
-              <span style={{ color: COLORS.red, fontVariantNumeric: "tabular-nums" }}>{fmt(f.surplus)}</span>
-            </div>
-
-            {deficitInfo.drivers.length > 0 && (
-              <div style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Likely contributors this year:</div>
-                <ul style={{ margin: 0, paddingLeft: 18 }}>
-                  {deficitInfo.drivers.map((d, i) => (
-                    <li key={i} style={{ fontSize: 12, marginBottom: 3 }}>
-                      <button onClick={() => goTo(d.kind === "income" ? "income" : "expenses")} style={linkStyle}>
-                        {d.label}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            <p style={{ marginTop: 0 }}>
-              In real life a household cashflow deficit cannot be sustained for long — usually only weeks or months, not years —
-              because no bank will lend money to fund ongoing living expenses. Most people can only cope with a very brief period
-              of negative cashflow before savings run out.
-            </p>
-            <p>
-              <strong>Years of deficits should be considered a failed plan</strong> that needs emergency restructuring. If this
-              model reflects a real-life scenario, please seek professional financial advice immediately.
-            </p>
-            <p style={{ color: COLORS.textMuted, fontSize: 11, marginBottom: 16 }}>
-              Use the <button onClick={() => goTo("income")} style={linkStyle}>Income</button> tab to increase earnings, or the{" "}
-              <button onClick={() => goTo("expenses")} style={linkStyle}>Expenses</button> tab to reduce spending.
-            </p>
-            <div style={{ display: "flex", justifyContent: "flex-end" }}>
-              <Btn onClick={() => setShowDeficitWarning(false)} color={COLORS.accent}>OK, I understand</Btn>
-            </div>
-          </div>
-        </Modal>
-      );})()}
+      {showDeficitWarning && deficitInfo && (
+        <DeficitWarningModal
+          deficitInfo={deficitInfo}
+          state={state}
+          setTab={setTab}
+          scenarioLabel={scenario === "after" ? "After Advice" : "Now"}
+          onClose={() => setShowDeficitWarning(false)}
+        />
+      )}
       <ScenarioToggle scenario={scenario} onActivateAfter={onActivateAfter} onActivateNow={onActivateNow} onResetAfter={onResetAfter} afterState={afterState} tabName="Projections" />
       {renderPopup()}
       <div className="flex gap-2" style={{ marginBottom: 16 }}>
@@ -396,7 +246,7 @@ export function ProjectionsTab({ state: nowState, setState: setNowState, setAfte
 
       {view === "chart" && (
         <div>
-          <Card title="Income vs Expenses">
+          <Card title="Income vs Expenses" actions={<DeficitWarningBadge deficitInfo={deficitInfo} state={state} setTab={setTab} scenarioLabel={scenario === "after" ? "After Advice" : "Now"} />}>
             <ResponsiveContainer width="100%" height={300}>
               <ComposedChart data={projectionData}>
                 <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} />
@@ -412,7 +262,7 @@ export function ProjectionsTab({ state: nowState, setState: setNowState, setAfte
             </ResponsiveContainer>
           </Card>
 
-          <Card title="Asset Breakdown Over Time">
+          <Card title="Asset Breakdown Over Time" actions={<DeficitWarningBadge deficitInfo={deficitInfo} state={state} setTab={setTab} scenarioLabel={scenario === "after" ? "After Advice" : "Now"} />}>
             <ResponsiveContainer width="100%" height={300}>
               <ComposedChart data={projectionData}>
                 <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} />
@@ -430,7 +280,7 @@ export function ProjectionsTab({ state: nowState, setState: setNowState, setAfte
             </ResponsiveContainer>
           </Card>
 
-          <Card title="Centrelink Age Pension">
+          <Card title="Centrelink Age Pension" actions={<DeficitWarningBadge deficitInfo={deficitInfo} state={state} setTab={setTab} scenarioLabel={scenario === "after" ? "After Advice" : "Now"} />}>
             <ResponsiveContainer width="100%" height={220}>
               <ComposedChart data={projectionData}>
                 <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} />
@@ -444,7 +294,7 @@ export function ProjectionsTab({ state: nowState, setState: setNowState, setAfte
             </ResponsiveContainer>
           </Card>
 
-          <Card title="Tax Breakdown">
+          <Card title="Tax Breakdown" actions={<DeficitWarningBadge deficitInfo={deficitInfo} state={state} setTab={setTab} scenarioLabel={scenario === "after" ? "After Advice" : "Now"} />}>
             <ResponsiveContainer width="100%" height={280}>
               <ComposedChart data={projectionData}>
                 <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} />
@@ -463,7 +313,7 @@ export function ProjectionsTab({ state: nowState, setState: setNowState, setAfte
             </ResponsiveContainer>
           </Card>
 
-          <Card title="Debt Over Time">
+          <Card title="Debt Over Time" actions={<DeficitWarningBadge deficitInfo={deficitInfo} state={state} setTab={setTab} scenarioLabel={scenario === "after" ? "After Advice" : "Now"} />}>
             <ResponsiveContainer width="100%" height={220}>
               <ComposedChart data={projectionData}>
                 <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} />
