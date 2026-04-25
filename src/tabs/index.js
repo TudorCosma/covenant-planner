@@ -1,0 +1,11 @@
+export { DashboardTab } from './DashboardTab';
+export { PersonalTab } from './PersonalTab';
+export { IncomeTab } from './IncomeTab';
+export { AssetsTab } from './AssetsTab';
+export { ExpensesTab } from './ExpensesTab';
+export { LiabilitiesTab } from './LiabilitiesTab';
+export { ProjectionsTab } from './ProjectionsTab';
+export { MonteCarloTab } from './MonteCarloTab';
+export { TaxTab } from './TaxTab';
+export { ReturnsTab } from './ReturnsTab';
+export { SettingsTab } from './SettingsTab';
