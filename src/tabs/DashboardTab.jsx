@@ -811,19 +811,27 @@ export function DashboardTab({ state: nowState, projectionData: nowProjectionDat
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
         {[
-          { label: "Annual Surplus", value: fmt(surplus), color: surplus >= 0 ? COLORS.green : COLORS.red, sub: "Income minus all expenses" },
+          { label: "Annual Surplus", value: fmt(surplus), color: surplus >= 0 ? COLORS.green : COLORS.red, sub: "Income minus all expenses", showDeficitBadge: true },
           { label: "Net Wealth", value: fmt(netWealth), color: COLORS.green, sub: "Investments + lifestyle assets" },
           { label: "Annual Income", value: fmt(totalIncome), color: COLORS.cyan, sub: "Salary, pension & other sources" },
           { label: "Annual Expenses", value: fmt(totalExpenses), color: COLORS.accent, sub: "Inc. debt repayments" },
           { label: "Net Investment Assets", value: fmt(netInvestment), color: COLORS.accent, sub: "Super + non-super minus debt" },
           { label: "Liabilities", value: fmt(totalLiabilities), color: totalLiabilities > 0 ? COLORS.red : COLORS.green, sub: totalAssets > 0 ? `Debt ratio: ${pct(totalLiabilities / (totalAssets + totalLifestyle))}` : "No debt recorded" },
-        ].map((item, i) => (
-          <div key={i} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: "14px 16px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-            <div style={{ color: COLORS.textMuted, fontSize: 10, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 4 }}>{item.label}</div>
-            <div style={{ color: item.color, fontSize: 20, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", lineHeight: 1.2 }}>{item.value}</div>
-            {item.sub && <div style={{ color: COLORS.textDim, fontSize: 10, marginTop: 4, fontFamily: "'DM Sans', sans-serif" }}>{item.sub}</div>}
-          </div>
-        ))}
+        ].map((item, i) => {
+          const showBadge = item.showDeficitBadge && activeDeficitInfo;
+          return (
+            <div key={i} style={{ position: "relative", background: COLORS.card, border: `1px solid ${showBadge ? COLORS.red + "70" : COLORS.border}`, borderRadius: 10, padding: "14px 16px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+              {showBadge && (
+                <div style={{ position: "absolute", top: 8, right: 8 }}>
+                  <DeficitWarningBadge deficitInfo={activeDeficitInfo} state={activeDeficitState} setTab={setTab} scenarioLabel={activeDeficitLabel} size={14} title={`${activeDeficitLabel} scenario has unsustainable cashflow — click for details.`} />
+                </div>
+              )}
+              <div style={{ color: COLORS.textMuted, fontSize: 10, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 4, paddingRight: showBadge ? 22 : 0 }}>{item.label}</div>
+              <div style={{ color: item.color, fontSize: 20, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", lineHeight: 1.2 }}>{item.value}</div>
+              {item.sub && <div style={{ color: COLORS.textDim, fontSize: 10, marginTop: 4, fontFamily: "'DM Sans', sans-serif" }}>{item.sub}</div>}
+            </div>
+          );
+        })}
       </div>
 
       <Card title="Asset Composition" actions={<DeficitWarningBadge deficitInfo={activeDeficitInfo} state={activeDeficitState} setTab={setTab} scenarioLabel={activeDeficitLabel} size={14} />}>
