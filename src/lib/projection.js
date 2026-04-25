@@ -267,7 +267,12 @@ export function runProjection(state, useRandomReturns = false, seed = 0) {
       const initRate = (loan.fixedTermMonths > 0 && loan.fixedRate ? loan.fixedRate : loan.variableRate || 6) / 100 / 12;
       const minMonthly = loan.repaymentType === "pi" ? (initRate > 0 ? (bal * initRate) / (1 - Math.pow(1 + initRate, -termMonths)) : bal / termMonths) : bal * initRate;
       const extraMonthly = getMonthlyEquiv(loan.extraRepayment || 0, loan.frequency);
-      const totalMonthlyPmt = minMonthly + extraMonthly;
+      // Frequency multiplier — fortnightly/weekly result in 13 "monthly-equivalent" payments per year
+      // (26 fortnights × monthly/2 = 13 monthly; 52 weeks × monthly/4 = 13 monthly), giving an extra
+      // month's payment per year vs 12 monthly payments. This matches the Liabilities tab comparison.
+      const freqMult = (loan.frequency === "fortnightly" || loan.frequency === "weekly") ? 13 / 12 : 1;
+      const effectiveMonthlyPmt = minMonthly * freqMult;
+      const totalMonthlyPmt = effectiveMonthlyPmt + extraMonthly;
       let remaining = bal;
       for (let m = 0; m < Math.min(monthsElapsed, termMonths); m++) {
         const mRate = (m < fixedEnd && loan.fixedRate) ? (loan.fixedRate || 0) / 100 / 12 : (loan.variableRate || 0) / 100 / 12;
