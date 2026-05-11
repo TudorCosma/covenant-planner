@@ -4,7 +4,7 @@ import { COLORS, THEMES } from "../data/themes";
 import { TABS } from "../data/tabs";
 import { ASSET_LABELS, DEFAULT_RETURN_PROFILES, DEFAULT_ASSET_RETURNS } from "../data/returnProfiles";
 import { DEFAULT_TAX_BRACKETS_2024, DEFAULT_SUPER_PARAMS, DEFAULT_CENTRELINK, DEFAULT_MEDICARE } from "../data/tax2024";
-import { Input, DateInput, FYInput, Select, Card, StatCard, Btn, Modal, HeaderBtn, ScenarioToggle, ReturnSummary, FinancialAssistant, DeficitWarningBadge } from "../components";
+import { Input, DateInput, FYInput, Select, Card, StatCard, Btn, Modal, HeaderBtn, ScenarioToggle, ReturnSummary, FinancialAssistant, DeficitWarningBadge, MortgageStressBadge } from "../components";
 import { fmt, pct, calcIncomeTax, calcMedicare, boxMullerRandom, calcDeprivedAssets, calcCentrelinkPension, calcDeemedIncome, getMonthlyEquiv, calcLoanPayoff, runProjection, buildDeficitInfo } from "../lib";
 export function DashboardTab({ state: nowState, projectionData: nowProjectionData, afterProjectionData, afterState, scenario, setState: setNowState, setAfterState, setTab }) {
   // Build deficit diagnostics for both scenarios so cards/charts can flag unsustainable plans.
@@ -58,6 +58,11 @@ export function DashboardTab({ state: nowState, projectionData: nowProjectionDat
     const n = l.termMonths || 360;
     return s + (r > 0 ? (l.balance * r) / (1 - Math.pow(1 + r, -n)) : l.balance / n) * 12;
   }, 0);
+  // Net income after income tax + Medicare for mortgage stress ratio (30% threshold).
+  const netIncome = yr0
+    ? Math.max(0, (yr0.totalIncome || 0) - (yr0.totalTax || 0) - (yr0.totalSuperTax || 0))
+    : Math.max(0, totalIncome);
+  const debtServiceRatio = netIncome > 0 ? debtRepayments / netIncome : 0;
   const totalExpenses = yr0
     ? yr0.totalExpenses  // already includes lifestyle + recurring + future + loan repayments
     : (expenses.baseExpenses.reduce((s, e) => s + (e.amount || 0), 0) + ((expenses.lifestyleExpenses || []).find(e => new Date().getFullYear() >= (e.startYear || 0) && new Date().getFullYear() <= (e.endYear || 9999))?.amount || expenses.annualLiving || 0) + debtRepayments);
@@ -816,17 +821,24 @@ export function DashboardTab({ state: nowState, projectionData: nowProjectionDat
           { label: "Annual Income", value: fmt(totalIncome), color: COLORS.cyan, sub: "Salary, pension & other sources" },
           { label: "Annual Expenses", value: fmt(totalExpenses), color: COLORS.accent, sub: "Inc. debt repayments" },
           { label: "Net Investment Assets", value: fmt(netInvestment), color: COLORS.accent, sub: "Super + non-super minus debt" },
-          { label: "Liabilities", value: fmt(totalLiabilities), color: totalLiabilities > 0 ? COLORS.red : COLORS.green, sub: totalAssets > 0 ? `Debt ratio: ${pct(totalLiabilities / (totalAssets + totalLifestyle))}` : "No debt recorded" },
+          { label: "Liabilities", value: fmt(totalLiabilities), color: totalLiabilities > 0 ? COLORS.red : COLORS.green, sub: totalAssets > 0 ? `Debt ratio: ${pct(totalLiabilities / (totalAssets + totalLifestyle))}` : "No debt recorded", showMortgageBadge: true },
         ].map((item, i) => {
-          const showBadge = item.showDeficitBadge && activeDeficitInfo;
+          const showDeficit = item.showDeficitBadge && activeDeficitInfo;
+          const showMortgage = item.showMortgageBadge && debtServiceRatio > 0.3;
+          const showAnyBadge = showDeficit || showMortgage;
           return (
-            <div key={i} style={{ position: "relative", background: COLORS.card, border: `1px solid ${showBadge ? COLORS.red + "70" : COLORS.border}`, borderRadius: 10, padding: "14px 16px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-              {showBadge && (
+            <div key={i} style={{ position: "relative", background: COLORS.card, border: `1px solid ${showAnyBadge ? COLORS.red + "70" : COLORS.border}`, borderRadius: 10, padding: "14px 16px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+              {showDeficit && (
                 <div style={{ position: "absolute", top: 8, right: 8 }}>
                   <DeficitWarningBadge deficitInfo={activeDeficitInfo} state={activeDeficitState} setTab={setTab} scenarioLabel={activeDeficitLabel} size={14} title={`${activeDeficitLabel} scenario has unsustainable cashflow — click for details.`} />
                 </div>
               )}
-              <div style={{ color: COLORS.textMuted, fontSize: 10, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 4, paddingRight: showBadge ? 22 : 0 }}>{item.label}</div>
+              {showMortgage && (
+                <div style={{ position: "absolute", top: 8, right: showDeficit ? 34 : 8 }}>
+                  <MortgageStressBadge debtRepayments={debtRepayments} netIncome={netIncome} dsr={debtServiceRatio} setTab={setTab} size={14} />
+                </div>
+              )}
+              <div style={{ color: COLORS.textMuted, fontSize: 10, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 4, paddingRight: showAnyBadge ? (showDeficit && showMortgage ? 52 : 22) : 0 }}>{item.label}</div>
               <div style={{ color: item.color, fontSize: 20, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", lineHeight: 1.2 }}>{item.value}</div>
               {item.sub && <div style={{ color: COLORS.textDim, fontSize: 10, marginTop: 4, fontFamily: "'DM Sans', sans-serif" }}>{item.sub}</div>}
             </div>

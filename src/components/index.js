@@ -11,3 +11,4 @@ export { ScenarioToggle } from './ScenarioToggle';
 export { ReturnSummary } from './ReturnSummary';
 export { FinancialAssistant } from './FinancialAssistant';
 export { DeficitWarningModal, DeficitWarningBadge } from './DeficitWarning';
+export { MortgageStressModal, MortgageStressBadge } from './MortgageStress';
