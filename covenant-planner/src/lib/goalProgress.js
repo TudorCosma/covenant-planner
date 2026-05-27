@@ -68,7 +68,7 @@ function progressHouse(goal, projectionData, state) {
   // Deposit target by a given year. Estimate funds available = non-super liquid by that year.
   const goalYear = goal.targetYear || (new Date().getFullYear() + 5);
   const goalAmt = goal.targetDeposit || 0;
-  const balance = projectedBalanceInYear(projectionData, goalYear, ["p1NonSuperBal", "p2NonSuperBal", "jointBal"]);
+  const balance = projectedBalanceInYear(projectionData, goalYear, ["p1NonSuper", "p2NonSuper", "jointNonSuper"]);
   const pct = goalAmt > 0 ? balance / goalAmt : 1;
   return {
     pct,
@@ -86,7 +86,7 @@ function progressLumpsum(goal, projectionData, state) {
   const currentAge = safeNum(state.personal?.person1?.birthYear, 1973);
   const goalYear = startYear + (targetAge - (startYear - currentAge));
   const goalAmt = goal.targetCost || goal.targetAmount || 0;
-  const balance = projectedBalanceInYear(projectionData, goalYear, ["p1NonSuperBal", "p2NonSuperBal", "jointBal"]);
+  const balance = projectedBalanceInYear(projectionData, goalYear, ["p1NonSuper", "p2NonSuper", "jointNonSuper"]);
   const pct = goalAmt > 0 ? balance / goalAmt : 1;
   return {
     pct,
@@ -101,7 +101,7 @@ function progressDebtFree(goal, projectionData, state) {
   // "Pay off all debt by year/age Y". Look at total loan balance in target year.
   const targetYear = goal.targetYear || (new Date().getFullYear() + 10);
   const row = projectionData.find(r => r.year === targetYear);
-  const debt = safeNum(row?.totalDebt ?? row?.loanBalance ?? 0, 0);
+  const debt = safeNum(row?.totalDebtRemaining ?? row?.totalLiabilities ?? 0, 0);
   const initialDebt = safeNum(state.assets?.loans?.reduce((s, l) => s + (l.balance || 0), 0), 1);
   const paidDown = Math.max(0, initialDebt - debt);
   const pct = initialDebt > 0 ? paidDown / initialDebt : 1;

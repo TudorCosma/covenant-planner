@@ -5,28 +5,26 @@
 
 const fmtMoney = (n) => `$${Math.round(n || 0).toLocaleString()}`;
 
-// Find the first age where total invested + cash is effectively zero (< $5k).
+// Find the first age where net investment assets are effectively zero (< $5k).
+// Uses canonical projection.js field names (netInvestmentAssets, netAssets).
 export function findRuinAge(data) {
   if (!data || data.length === 0) return null;
   for (const row of data) {
-    const total = (row.totalInvested ?? row.netInvestmentAssets ?? row.netAssets ?? 0);
+    const total = (row.netInvestmentAssets ?? row.netAssets ?? 0);
     if (total < 5000 && row.age1 > 60) return row.age1;
   }
   return null;
 }
 
 // Average retirement-phase income across all years where person1 age >= retirementAge.
+// Uses the projection's totalIncome (already aggregates salary, pension draws, age pension,
+// rental, dividends etc.) — sourcing individual components would mean tracking field renames.
 export function avgRetirementIncome(data, state) {
   if (!data || data.length === 0) return 0;
   const retAge = state?.personal?.person1?.retirementAge || 65;
   const retYears = data.filter(r => r.age1 >= retAge);
   if (retYears.length === 0) return 0;
-  const totals = retYears.map(r => {
-    const drawdown = (r.p1SuperDraw || 0) + (r.p2SuperDraw || 0) + (r.p1PensionDraw || 0) + (r.p2PensionDraw || 0);
-    const pension  = r.agePensionTotal || r.agePension || 0;
-    const other    = (r.nonSuperIncome || 0) + (r.rentalIncome || 0) + (r.otherTaxFree || 0);
-    return drawdown + pension + other;
-  });
+  const totals = retYears.map(r => r.totalIncome || 0);
   return totals.reduce((s, x) => s + x, 0) / totals.length;
 }
 
@@ -113,8 +111,11 @@ export function interpretTax(data /*, state*/) {
 }
 
 export function interpretPension(data /*, state*/) {
-  const firstPensionRow = (data || []).find(r => (r.agePensionTotal || r.agePension || 0) > 0);
+  // Projection emits per-person agePension keys (p1AgePension, p2AgePension) and may include
+  // an aggregated agePension or agePensionTotal field. Sum whatever's present.
+  const sumRow = (r) => (r.agePensionTotal || r.agePension || (r.p1AgePension || 0) + (r.p2AgePension || 0) || 0);
+  const firstPensionRow = (data || []).find(r => sumRow(r) > 0);
   if (!firstPensionRow) return { ok: true, fact: `Plan does not draw age pension within the projection horizon.` };
-  const total = (data || []).reduce((s, r) => s + (r.agePensionTotal || r.agePension || 0), 0);
+  const total = (data || []).reduce((s, r) => s + sumRow(r), 0);
   return { ok: true, fact: `Plan begins drawing age pension at age ${firstPensionRow.age1}. Total over plan: ${fmtMoney(total)}.` };
 }

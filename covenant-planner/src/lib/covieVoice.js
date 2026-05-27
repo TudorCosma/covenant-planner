@@ -25,20 +25,39 @@ export function wordCount(s) {
 
 // ---- Refuser -------------------------------------------------------------
 
+// Trigger phrases that flag a question as seeking PERSONAL advice (vs concept education).
+// Tuned to fire on decision verbs ("should I retire / buy / sell / invest / contribute / pay off…")
+// rather than the bare "should I" — which legitimately appears in concept questions like
+// "should I understand franking credits before retiring?". A separate concept-allowlist
+// suppresses obvious false-positives.
 export const ADVICE_TRIGGERS = [
-  /\bshould (i|we)\b/i,
-  /\bcan (i|we) (retire|afford|stop working|do this)\b/i,
+  /\bshould (i|we) (retire|buy|sell|invest|contribute|salary[ -]?sacrifice|put|move|switch|pay (off|down)|withdraw|gift|downsize|borrow|refinance|stop|start|take|claim|use)\b/i,
+  /\bcan (i|we) (retire|afford|stop working|do this|do that)\b/i,
   /\b(am i|are we) (on track|going to be ok|ready|set|fine)\b/i,
-  /\bis (it|this|that) (a )?(good|bad|enough|right) (idea|move|amount|strategy)\b/i,
+  /\bis (it|this|that|now) (a )?(good|bad|smart|enough|right) (idea|move|amount|strategy|time)\b/i,
   /\bwhat (do you|would you) recommend\b/i,
-  /\bwhat should (i|we)\b/i,
-  /\bbest (strategy|option|choice|fund|allocation) for (me|us)\b/i,
+  /\bwhat should (i|we) (do|invest|buy|sell|contribute|put|choose|pick|salary[ -]?sacrifice)\b/i,
+  /\bbest (strategy|option|choice|fund|allocation|investment) for (me|us)\b/i,
   /\bwill (i|we) have enough\b/i,
   /\bdo (i|we) have enough\b/i,
+  /\bhow much (should|can) (i|we) (contribute|save|invest|put|sacrifice|spend|draw)\b/i,
+];
+
+// Concept-question allowlist — phrases that indicate the user wants education,
+// not a decision. If any match, we bypass the refuser.
+const CONCEPT_ALLOWLIST = [
+  /\bwhat (is|are|does|do)\b/i,
+  /\bhow (does|do|is|are) .* work\b/i,
+  /\bexplain\b/i,
+  /\bdefine\b/i,
+  /\bunderstand\b/i,
+  /\bdifference between\b/i,
+  /\bwhy (is|does|do|are)\b/i,
 ];
 
 export function isAdviceQuestion(text) {
   if (!text) return false;
+  if (CONCEPT_ALLOWLIST.some(rx => rx.test(text))) return false;
   return ADVICE_TRIGGERS.some(rx => rx.test(text));
 }
 

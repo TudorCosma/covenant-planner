@@ -30,9 +30,15 @@ export default function App() {
   const [saveStatus, setSaveStatus] = useState(SAVED ? "restored" : "idle"); // idle | saving | saved | restored | error
   const fileInputRef = useRef(null);
 
-  // First-run wizard — auto-show on truly fresh installs (no saved plan & wizard not yet completed),
-  // skipped when proMode is on. Re-launchable from the Settings tab if a user wants to redo it.
-  const [showWizard, setShowWizard] = useState(() => !SAVED && !(SAVED?.state?.wizardCompleted) && !DEFAULT_STATE.proMode);
+  // First-run wizard — show whenever the active plan has no `wizardCompleted` flag
+  // (covers truly fresh installs AND legacy saved plans that pre-date V2). Skipped
+  // when proMode is on. Re-launchable later by resetting from the header.
+  const [showWizard, setShowWizard] = useState(() => {
+    const savedState = SAVED?.state;
+    const completed = savedState?.wizardCompleted ?? false;
+    const proMode = savedState?.proMode ?? DEFAULT_STATE.proMode;
+    return !completed && !proMode;
+  });
 
   // FY changer — replaces state.legislation with the registry snapshot for the chosen year.
   // Mirrors the same change into afterState so both scenarios stay on the same rule set.
