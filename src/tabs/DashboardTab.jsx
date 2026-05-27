@@ -31,7 +31,6 @@ export function DashboardTab({ state: nowState, projectionData: nowProjectionDat
   const isCouple = personal.isCouple;
   const [showInvestment, setShowInvestment] = useState(true);
   const [showLifestyle, setShowLifestyle] = useState(false);
-  const [showNominal, setShowNominal] = useState(false);
   const [chartPopup, setChartPopup] = useState(null);
   const [showReport, setShowReport] = useState(false); // false | true | "no-after" | "no-changes"
   const [showSaveLoad, setShowSaveLoad] = useState(null); // null | "save" | "load"
@@ -1062,13 +1061,6 @@ export function DashboardTab({ state: nowState, projectionData: nowProjectionDat
             <Btn small active={showLifestyle} onClick={() => setShowLifestyle(!showLifestyle)} color={COLORS.orange}>
               {showLifestyle ? "✓" : ""} Lifestyle Assets
             </Btn>
-            <span style={{ width: 1, background: COLORS.border, margin: "0 4px" }} />
-            <Btn small active={!showNominal} onClick={() => setShowNominal(false)} color={COLORS.purple}>
-              Real (today's $)
-            </Btn>
-            <Btn small active={showNominal} onClick={() => setShowNominal(true)} color={COLORS.purple}>
-              Nominal
-            </Btn>
           </div>
           <ResponsiveContainer width="100%" height={320}>
             <ComposedChart data={projectionData} margin={{ bottom: 20 }}>
@@ -1087,15 +1079,16 @@ export function DashboardTab({ state: nowState, projectionData: nowProjectionDat
               <YAxis tick={{ fill: COLORS.textDim, fontSize: 11 }} tickFormatter={fmt} />
               <Tooltip formatter={(v) => fmt(v)} contentStyle={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8 }} labelFormatter={(l) => `Age ${l}`} />
               <Legend verticalAlign="top" wrapperStyle={{ paddingBottom: 8, fontSize: 11 }} />
-              <Area type="monotone" dataKey={showNominal ? "netAssetsNominal" : "netAssetsReal"} stroke={COLORS.accent} fill="url(#gNet)" strokeWidth={2.5} name="Total Net Assets" />
-              {showInvestment && <Area type="monotone" dataKey={showNominal ? "netInvestmentNominal" : "netInvestmentReal"} stroke={COLORS.green} fill="url(#gInv)" strokeWidth={2} strokeDasharray="6 3" name="Net Investment Assets" />}
-              {showLifestyle && <Line type="monotone" dataKey={showNominal ? "lifestyleNominal" : "lifestyleReal"} stroke={COLORS.orange} strokeWidth={2} strokeDasharray="4 4" dot={false} name="Lifestyle Assets" />}
+              <Area type="monotone" dataKey="netAssets" stroke={COLORS.accent} fill="url(#gNet)" strokeWidth={2.5} name="Total Net Assets" />
+              {showInvestment && <Area type="monotone" dataKey="netInvestmentAssets" stroke={COLORS.green} fill="url(#gInv)" strokeWidth={2} strokeDasharray="6 3" name="Net Investment Assets" />}
+              {showLifestyle && <Line type="monotone" dataKey="lifestyleAssets" stroke={COLORS.orange} strokeWidth={2} strokeDasharray="4 4" dot={false} name="Lifestyle Assets" />}
             </ComposedChart>
           </ResponsiveContainer>
           <div style={{ marginTop: 12, padding: "10px 14px", background: COLORS.infoBg || "#ece8e1", borderRadius: 8 }}>
             <p style={{ color: COLORS.textDim, fontSize: 11, margin: 0, fontFamily: "'DM Sans', sans-serif", lineHeight: 1.5 }}>
-              <strong style={{ color: COLORS.text }}>Net Investment Assets</strong> shows only financial assets (super, non-super, investments) minus liabilities — the funds actually available to fund your lifestyle.
-              <strong style={{ color: COLORS.text }}> Lifestyle Assets</strong> (home, cars, contents) grow or depreciate at their individual rates. Portfolios are rebalanced to target allocations annually.
+              <strong style={{ color: COLORS.text }}>All figures shown in today's dollars</strong> — every future amount is automatically adjusted for inflation, so $1M at age 80 means "what $1M buys you today". This removes the guesswork of mentally discounting future nominal values.
+              {" "}<strong style={{ color: COLORS.text }}>Net Investment Assets</strong> shows only financial assets (super, non-super, investments) minus liabilities — the funds available to fund your lifestyle.
+              {" "}<strong style={{ color: COLORS.text }}>Lifestyle Assets</strong> (home, cars, contents) grow or depreciate at their individual rates. Portfolios are rebalanced to target allocations annually.
             </p>
           </div>
         </Card>

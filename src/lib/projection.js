@@ -718,10 +718,23 @@ export function runProjection(state, useRandomReturns = false, seed = 0) {
     });
     const netInvestmentAssets = totalAssets - totalLiab;
 
-    data.push({
+    // ── BUILD ROW IN NOMINAL, THEN DEFLATE EVERY $ FIELD TO TODAY'S DOLLARS ──
+    //
+    // The projection engine MUST compute in nominal (future) dollars internally so
+    // that tax brackets, super caps, Centrelink thresholds, etc. apply correctly to
+    // the actual income/balances of that future year (those thresholds are nominal
+    // in legislation). However, every CONSUMER of this output (Dashboard, charts,
+    // Projections table, Cashflow ledger, Value-of-Advice cards) now reads values
+    // in today's dollars only — removing the cognitive load of mentally adjusting
+    // "$3.2M at 2055 → what's that worth?".
+    //
+    // Convention: the canonical field name (e.g. `netAssets`, `totalTax`) is the
+    // TODAY'S-DOLLAR value. The nominal version is preserved under `__nominal` for
+    // debugging and any internal tools that genuinely need it, but no UI consumer
+    // should read those.
+    const nominalRow = {
       year, age1, age2, period: y + 1,
       p1Salary, p2Salary, p1SG, p2SG, p1PensionDraw, p2PensionDraw, agePension, investEarnings: Math.max(0, investEarnings),
-      // Tax breakdown
       p1Taxable, p2Taxable, p1IncomeTax, p2IncomeTax, p1Medicare, p2Medicare, p1Tax, p2Tax,
       p1SuperContribTax, p2SuperContribTax, totalTax, totalSuperTax,
       totalIncome: totalNetIncome, totalExpenses: totalExp + liabilityPayments,
@@ -729,18 +742,24 @@ export function runProjection(state, useRandomReturns = false, seed = 0) {
       p1Super: Math.max(0, p1SuperBal), p2Super: Math.max(0, p2SuperBal),
       p1NonSuper: Math.max(0, p1NonSuperBal), p2NonSuper: Math.max(0, p2NonSuperBal), jointNonSuper: Math.max(0, jointNonSuperBal),
       cashAccount: Math.max(0, cashAccount), debtAccount: Math.max(0, debtAccount),
-      cashRate, debtRate,
       totalAssets, totalLiabilities: totalLiab, deductibleInterest, totalDebtRemaining, liabilityPayments,
       netAssets: netInvestmentAssets + lifestyleTotal,
       netInvestmentAssets,
       lifestyleAssets: lifestyleTotal,
-      netAssetsNominal: netInvestmentAssets + lifestyleTotal,
-      netInvestmentNominal: netInvestmentAssets,
-      lifestyleNominal: lifestyleTotal,
-      netAssetsReal: (netInvestmentAssets + lifestyleTotal) / inflationFactor,
-      netInvestmentReal: netInvestmentAssets / inflationFactor,
-      lifestyleReal: lifestyleTotal / inflationFactor,
+    };
+    // Fields that are NOT dollar amounts and must not be deflated.
+    const NON_DOLLAR_FIELDS = new Set(["year", "age1", "age2", "period"]);
+    const deflatedRow = {};
+    for (const [k, v] of Object.entries(nominalRow)) {
+      deflatedRow[k] = (NON_DOLLAR_FIELDS.has(k) || typeof v !== "number") ? v : v / inflationFactor;
+    }
+    data.push({
+      ...deflatedRow,
+      // Non-deflatable extras
+      cashRate, debtRate,
       inflationFactor,
+      // Preserve the raw nominal row for debugging / engine-internal use only.
+      __nominal: nominalRow,
     });
   }
   return data;

@@ -520,7 +520,7 @@ For retirement planning, this means:
 • Investment returns need to exceed inflation just to maintain purchasing power
 • An income of $70,000 today is worth only $43,000 in today's dollars in 20 years if not indexed
 
-This tool shows projections in both **nominal** (future dollar) and **real** (today's dollar) terms. The real figures are more meaningful for planning because they show what the money will actually buy. A $1.5 million balance in 30 years sounds enormous but in today's dollars at 2.5% inflation it is equivalent to about $730,000.` },
+**Every figure in this app is shown in today's dollars.** Each future-year value is automatically deflated by your inflation assumption (set on the Personal tab, default 2.5%), so when the chart shows $730,000 at age 85 it means "what $730,000 buys you today". The underlying engine still calculates in nominal terms behind the scenes (so tax brackets, super caps and Centrelink thresholds apply to the correct nominal amounts), but everything you see on screen is in today's purchasing power. This removes the trap of feeling rich because of a $3M nominal balance that's actually worth $1.2M in real terms.` },
 
   { keys: ["sequence of returns","bad timing","retiring in a crash","market falls at retirement","order of returns"],
     answer: `Sequence of returns risk is one of the most important and least understood risks in retirement planning.
