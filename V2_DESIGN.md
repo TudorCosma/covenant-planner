@@ -8,22 +8,37 @@
 
 ## Regulatory constraint (read first)
 
-Under Australian law, providing personal financial advice without a Statement of Advice (SoA) and the full compliance machinery is a breach. **This consumer tool must never tell the user what to do.** It can:
+Under Australian law, providing **personal financial advice** without a Statement of Advice (SoA) and the full compliance machinery is a breach. The line we walk:
 
-- Show their own numbers
-- Show their own goals (that *they* set)
-- Show the gap or progress between the two
-- Let them try "what-if" scenarios where *they* choose the change
-- Explain general concepts (education) and refer to an advisor for personal questions
+### ✅ Allowed (general education + how-to-use-the-app guidance)
+- Show the user their own numbers.
+- Show their own goals (that *they* set).
+- Show the gap or progress between the two.
+- Let them try "what-if" scenarios where *they* choose the change.
+- Explain general financial concepts (education, not personalised).
+- **Point out which inputs IN THIS APP have the biggest effect on a given progress bar** — this is app-usage guidance, not advice. ("If you want to move this bar, the levers in this app that usually matter most are A, B, C — try them and see.")
+- **Explain general principles** about which kinds of changes tend to matter more (e.g. "regular expenses compound over decades, one-off expenses don't" — that's financial literacy).
+- Always pair with the educational disclaimer + advisor-referral encouragement ("nothing beats a second set of eyes from an advisor who knows your full situation").
 
-It must NOT:
+### ❌ Not allowed (personal advice)
+- Tell the user what to actually do with their money ("you should salary-sacrifice $200/wk", "switch your super to Conservative").
+- Quote specific dollar amounts as the recommended action ("contribute $30k/yr").
+- Score their plan as good or bad in absolute terms (only progress against *their own* stated goals).
+- Answer prescriptive questions like "can I retire?", "am I on track?", "should I…?" — these always bounce to advisor referral.
+- Imply certainty about the future ("you will run out at 84"). Always frame as "based on your current selections, the plan…".
 
-- Recommend a course of action ("you should retire later", "you should salary-sacrifice more")
-- Score their plan as "good" or "bad" in absolute terms — only progress against *their own* stated goals
-- Suggest a "best next action" — that's a recommendation
-- Imply the user can or cannot retire — only show whether their plan meets the goals they set
+### The shape of an allowed nudge
+When a goal-progress bar is below 100%, the app may say:
 
-The user is not dumb. If their plan shows 60% progress to their stated retirement income goal, they can draw their own conclusion. Spelling that conclusion out is the line.
+> Based on your current selections, the plan tracks to about 78% of your stated retirement income goal. **Levers in this app that tend to move this number** (try any to see the impact):
+> - Reducing regular expenses (compounds over decades — usually larger effect than cutting one-offs).
+> - Working longer or semi-retiring (delays drawing on savings and adds contributions).
+> - Reviewing your savings and investment mix to make sure they're working as hard as you want.
+> - Adjusting the goal itself if it no longer reflects what you want.
+>
+> *This is educational information about how to use this tool — not personal financial advice. A planner who knows your full situation can help you decide which of these (if any) makes sense for you. Nothing beats a good second opinion.*
+
+That's the template. Every nudge follows it: **plain progress fact → app-usage guidance + general principle → disclaimer + advisor referral**. Never "do X".
 
 ---
 
@@ -100,19 +115,19 @@ goals: {
 
 ---
 
-## 2. "What This Means" Facts Layer
+## 2. "What This Means" Facts + Lever-Nudge Layer
 
 ### Goal
-Every key number on the Dashboard is paired with a **neutral statement of fact** that compares the projection to the user's own goal. No recommendations, no prescriptions, no "you should". The user draws their own conclusions.
+Every key number on the Dashboard is paired with a **neutral statement of fact** comparing the projection to the user's own goal. When the projection falls short of a goal, the fact is followed by a **lever nudge** — a list of which inputs IN THIS APP tend to move that particular number, framed as exploration prompts, paired with the educational disclaimer + advisor-referral. This is the "shape of an allowed nudge" template from the top of this doc.
 
 ### Tone, before and after
 
-| ❌ Advice (forbidden) | ✅ Fact relative to user's goal (allowed) |
+| ❌ Personal advice (forbidden) | ✅ Fact + lever-nudge (allowed) |
 |---|---|
-| "Your money runs out at 84 — try retiring 2 years later." | "Your money lasts until age 84. Your stated goal is to last until 90." |
-| "You'll get a part age pension at 67 — salary sacrifice more to delay it." | "Your plan begins drawing age pension at 67." |
-| "You'll pay too much tax — switch to a TTR strategy." | "Total tax paid over the plan: $410k." |
-| "You can retire comfortably." | (do not say this) |
+| "Your money runs out at 84 — you should retire 2 years later." | "Based on your selections, savings last to age 84 vs your goal of 90. **Levers in this app that tend to move longevity:** working longer, reducing regular expenses, reviewing your investment mix. Try any of the buttons above to see the impact. *Educational only — talk to an advisor for personal guidance.*" |
+| "You'll get a part age pension at 67 — salary sacrifice $200/wk to delay it." | "Plan begins drawing age pension at 67. (Want to see how adding to super affects this? Try the 'Add to super' button above.)" |
+| "You'll pay too much tax — switch to a TTR strategy." | "Total tax over plan: $410k. About 60% is super contribution tax — the Returns & Portfolios tab lets you experiment with the mix." |
+| "You can retire comfortably." | (still do not say this — judgement of "comfort" is advice) |
 
 ### Mechanism
 
@@ -123,16 +138,26 @@ function interpretLongevity(data, state) {
   const ruinAge = findRuinAge(data);
   const goalAge = state.goals.targetLastUntilAge;
   if (ruinAge == null) {
-    return { fact: `Your savings last the full plan (to age ${data[data.length-1].age1}).` };
+    return { fact: `Based on your selections, savings last the full plan (to age ${data[data.length-1].age1}).` };
   }
   if (ruinAge >= goalAge) {
-    return { fact: `Your savings last to age ${ruinAge}, meeting your goal of ${goalAge}.` };
+    return { fact: `Based on your selections, savings last to age ${ruinAge}, meeting your goal of ${goalAge}.` };
   }
-  return { fact: `Your savings last to age ${ruinAge}. Your stated goal is to last to age ${goalAge}.` };
+  // Below goal — facts + lever nudge + disclaimer
+  return {
+    fact: `Based on your selections, savings last to age ${ruinAge} vs your stated goal of ${goalAge}.`,
+    levers: [
+      { label: "Working longer or semi-retiring",      principle: "delays drawing on savings AND adds contributions — usually the highest-leverage single change" },
+      { label: "Reducing regular ongoing expenses",    principle: "compounds over decades — typically more impact than cutting one-off expenses" },
+      { label: "Reviewing your savings/investment mix",principle: "small return differences compound into large dollar differences over 20–30 years" },
+      { label: "Adjusting the goal itself",            principle: "the goal you set might not be the one that matters to you most" },
+    ],
+    disclaimer: `Educational information about how to use this tool — not personal financial advice. A planner who knows your full situation can help you decide which (if any) of these makes sense for you. Nothing beats a good second opinion.`,
+  };
 }
 ```
 
-No `verdict: "good" | "bad"`, no `action: { label, onClick }`. Just facts.
+Allowed: factual statement, generic lever list, disclaimer. Forbidden: specific dollar prescriptions, "you should", "best for you".
 
 ### Coverage
 
@@ -274,13 +299,14 @@ export function computeGoalProgress(projectionData, state) {
 
 ## 5. AI Financial Assistant — advice guardrails
 
-The chat must **never give personal financial advice**, regardless of how the user phrases the question. Current state already has `ADVICE_REFERRAL` fallback in `knowledgeBase.js`. We harden it:
+The chat answers two kinds of question freely: **general financial concepts** ("what is concessional contribution tax?") and **how to use this app** ("how do I model a downsize?"). It refuses **personal advice questions** ("should I…?", "can I retire?", "am I on track?"). Current state already has `ADVICE_REFERRAL` fallback in `knowledgeBase.js`. We harden it:
 
 ### Changes
-- **Rename** the assistant from "Financial Assistant" to **"Ask about financial concepts"** (sets expectation up front).
-- **Pre-pended disclaimer** in every answer: "This is general education only — not personal advice."
-- **Hard refuser** for any question matching prescriptive patterns: "should I", "is it a good idea to", "do you recommend", "can I retire", "am I on track" → returns ADVICE_REFERRAL immediately without attempting an answer.
-- **Audit the existing KNOWLEDGE_BASE** for any answer that crosses the line (e.g. "the best strategy is…") and rewrite to "one approach is… your advisor can help you decide if it's right for you".
+- **Rename** from "Financial Assistant" to **"Ask about financial concepts"** (sets expectation up front).
+- **Disclaimer prepended** to every answer: "Educational only — not personal advice. Talk to an advisor for your situation."
+- **Hard refuser** for prescriptive questions (regex list below) → returns ADVICE_REFERRAL immediately without searching the KB.
+- **Audit existing KNOWLEDGE_BASE** for any answer that crosses the line (e.g. "the best strategy is…") and rewrite to "one approach is… an advisor can help you decide if it's right for you".
+- **Permitted to answer** "how does this app handle X?" / "where do I change Y?" / "what's the difference between X and Y?" — these are app guidance + education, not advice.
 - Shrink the floating bubble visually so it reads as a secondary tool, not a primary feature.
 
 ### Refusal patterns (regex, case-insensitive)
@@ -323,15 +349,15 @@ If any match → return `ADVICE_REFERRAL` text, do not search the KB.
 |---|---|
 | 1. Wizard salary capture | **Combined household, with "edit split" link for couples** |
 | 2. Downsize scenario % proceeds | **30% of current home value, with "edit" override on the button** |
-| 3. Readiness Score weights | **Scrapped entirely** — replaced with neutral Goal Progress bars against user-set goals. Reason: a quality score implies recommendation, breaching ASIC advice rules. |
-| 4. AI Assistant future | **Rename + shrink + harden** with regex refuser for prescriptive questions. Must never give advice. |
+| 3. Readiness Score weights | **Scrapped composite score** — replaced with neutral Goal Progress bars against user-set goals. When a bar is below 100%, app shows a **lever nudge** listing which inputs in this app tend to move that bar (general education + how-to-use-the-app, paired with disclaimer + advisor referral). |
+| 4. AI Assistant future | **Rename + shrink + harden** with regex refuser for prescriptive questions ("should I", "can I retire", "am I on track"). Permitted to answer general financial concepts and how-to-use-this-app questions. Every answer carries the educational-only disclaimer. |
 | 5. Pro mode + wizard | **Pro mode skips wizard entirely** |
 
 ---
 
 ## What we are NOT building
 
-- ☓ Anything that recommends a course of action ("you should…", "best for you is…")
+- ☓ Personal advice ("you should…", "best for you is…", specific dollar prescriptions)
 - ☓ A single composite readiness/quality score
 - ☓ "Best next action" recommender
 - ☓ Backend / accounts / sync across devices
