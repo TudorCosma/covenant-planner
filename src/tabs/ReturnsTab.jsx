@@ -2,8 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, ComposedChart } from "recharts";
 import { COLORS, THEMES } from "../data/themes";
 import { TABS } from "../data/tabs";
-import { ASSET_LABELS, DEFAULT_RETURN_PROFILES, DEFAULT_ASSET_RETURNS } from "../data/returnProfiles";
-import { DEFAULT_TAX_BRACKETS_2024, DEFAULT_SUPER_PARAMS, DEFAULT_CENTRELINK, DEFAULT_MEDICARE } from "../data/tax2024";
+import { ASSET_LABELS, DEFAULT_RETURN_PROFILES, DEFAULT_ASSET_RETURNS, profileDisplayLabel } from "../data/returnProfiles";
 import { Input, DateInput, FYInput, Select, Card, StatCard, Btn, Modal, HeaderBtn, ScenarioToggle, ReturnSummary, FinancialAssistant } from "../components";
 import { fmt, pct, calcIncomeTax, calcMedicare, boxMullerRandom, calcDeprivedAssets, calcCentrelinkPension, calcDeemedIncome, getMonthlyEquiv, calcLoanPayoff, runProjection } from "../lib";
 export function ReturnsTab({ state, setState }) {
@@ -35,7 +34,7 @@ export function ReturnsTab({ state, setState }) {
       <Card title="Portfolio Allocation Profiles">
         <div className="flex gap-2" style={{ marginBottom: 16, flexWrap: "wrap" }}>
           {Object.keys(state.returnProfiles).map(p => (
-            <Btn key={p} small active={viewProfile === p} onClick={() => setViewProfile(p)}>{p}</Btn>
+            <Btn key={p} small active={viewProfile === p} onClick={() => setViewProfile(p)}>{profileDisplayLabel(p, !!state.proMode)}</Btn>
           ))}
         </div>
         {viewProfile && (

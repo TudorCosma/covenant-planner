@@ -1,7 +1,53 @@
 import { calcIncomeTax, calcMedicare } from './tax';
+import { calcMedicareLevy, calcMLS } from './medicare';
+import { calcLITO, calcSAPTO } from './taxOffsets';
 import { calcCentrelinkPension, calcDeemedIncome, calcDeprivedAssets } from './centrelink';
 import { calcLoanPayoff, getMonthlyEquiv } from './loans';
 import { boxMullerRandom } from './monteCarlo';
+import { resolveProfileKey } from '../data/returnProfiles';
+
+// Apply the post-FY25-26 tax pipeline for a single person.
+// Returns total tax (income tax after LITO/SAPTO + Medicare + MLS),
+// and the refundable-franking adjustment (positive = refund the taxpayer).
+function calcPersonTax({ taxable, frankingCredit, age, isCouple, illnessSeparated, hasPrivateHealth, dependents, reportableExtras, partnerMLSIncome, legislation, taxSettings }) {
+  const t = legislation || {};
+  const ts = taxSettings || {};
+  const grossIncomeTax = calcIncomeTax(taxable, t.taxBrackets || []);
+
+  // Non-refundable offsets reduce income tax but not Medicare.
+  let offsets = 0;
+  if (ts.applyLITO !== false && t.lito)  offsets += calcLITO(taxable, t.lito);
+  if (ts.applySAPTO !== false && t.sapto && age >= (t.centrelink?.ageQualifyingAge || 67)) {
+    const category = illnessSeparated ? "illnessSeparated" : (isCouple ? "couple" : "single");
+    offsets += calcSAPTO(taxable, category, t.sapto);
+  }
+  const incomeTaxAfterOffsets = Math.max(0, grossIncomeTax - offsets);
+
+  // Medicare split: levy shade-in (s.applyMedicareShadeIn) and MLS (s.applyMLSTiered)
+  // are independent toggles. Even if shade-in is disabled, MLS may still apply.
+  const hasTieredBrackets = Array.isArray(t.medicare?.surchargeBrackets) && t.medicare.surchargeBrackets.length > 0;
+  const medicareOpts = { isCouple, hasPrivateHealth, isSenior: age >= 65, dependents };
+  const levy = ts.applyMedicareShadeIn !== false && hasTieredBrackets
+    ? calcMedicareLevy(taxable, t.medicare, medicareOpts)
+    : (taxable * ((t.medicare?.levyRate) || 0.02));
+  // MLS income base = taxable + reportable extras (FBT, super, investment losses).
+  // For couples the MLS test uses combined family income.
+  const personMLSIncome = (taxable || 0) + (reportableExtras || 0);
+  const familyMLSIncome = isCouple ? (personMLSIncome + (partnerMLSIncome || 0)) : personMLSIncome;
+  const mls = (ts.applyMLSTiered !== false && hasTieredBrackets)
+    ? calcMLS(familyMLSIncome, t.medicare, medicareOpts) * (isCouple ? (personMLSIncome / Math.max(1, familyMLSIncome)) : 1)
+    : 0;
+  const medicare = levy + mls;
+
+  // Franking credits are fully refundable (ITAA 1997 s.207-45). Reduces total tax;
+  // can be refunded as cash if credits exceed tax liability when frankingRefundEnabled.
+  const totalBeforeFranking = incomeTaxAfterOffsets + medicare;
+  const allowRefund = ts.frankingRefundEnabled !== false;
+  const totalTax = allowRefund
+    ? totalBeforeFranking - (frankingCredit || 0)            // can go negative = refund
+    : Math.max(0, totalBeforeFranking - (frankingCredit || 0)); // clamp at zero
+  return { totalTax, incomeTaxAfterOffsets, medicare, offsets, grossIncomeTax };
+}
 
 export function runProjection(state, useRandomReturns = false, seed = 0) {
   const { personal, income, assets, expenses, legislation, returnProfiles, assetReturns } = state;
@@ -41,7 +87,8 @@ export function runProjection(state, useRandomReturns = false, seed = 0) {
   // Helper: grow a pool by tracking each asset class separately, then rebalance annually
   // investmentCostRate: total annual % fee deducted from pool (admin + management + advice)
   const growPool = (holdings, profileName, classReturns, investmentCostRate = 0) => {
-    const profile = returnProfiles[profileName] || returnProfiles["Balanced"];
+    const key = resolveProfileKey(profileName);
+    const profile = returnProfiles[key] || returnProfiles["G60"] || Object.values(returnProfiles)[0] || {};
     let newTotal = 0;
 
     // Apply each asset class's return to its portion
@@ -67,7 +114,8 @@ export function runProjection(state, useRandomReturns = false, seed = 0) {
 
   // Initialise holdings for each pool based on their profile allocation
   const initHoldings = (balance, profileName) => {
-    const profile = returnProfiles[profileName] || returnProfiles["Balanced"];
+    const key = resolveProfileKey(profileName);
+    const profile = returnProfiles[key] || returnProfiles["G60"] || Object.values(returnProfiles)[0] || {};
     const h = {};
     for (const [assetClass, weight] of Object.entries(profile)) {
       h[assetClass] = (balance || 0) * weight;
@@ -75,8 +123,10 @@ export function runProjection(state, useRandomReturns = false, seed = 0) {
     return h;
   };
 
-  const superProfile = assets.superAccounts.p1Super?.profile || "Balanced";
-  const nonSuperProfile = assets.nonSuper.joint?.profile || "Balanced";
+  // Resolve any saved-scenario legacy profile names ("Balanced", "Growth", etc.)
+  // onto the current G-coded profile catalogue. New scenarios use keys like "G60".
+  const superProfile    = resolveProfileKey(assets.superAccounts.p1Super?.profile || "G60");
+  const nonSuperProfile = resolveProfileKey(assets.nonSuper.joint?.profile || "G0");
 
   let p1SuperBal = (assets.superAccounts.p1Super?.balance || 0) + (assets.superAccounts.p1Pension?.balance || 0)
     + (assets.superAccounts.p1Extra || []).reduce((s, a) => s + (a.balance || 0), 0);
@@ -154,8 +204,10 @@ export function runProjection(state, useRandomReturns = false, seed = 0) {
     // Generate this year's asset class returns (same across all pools for consistency)
     const classReturns = getAssetClassReturns(useRandomReturns);
 
-    // Blended return for reporting
-    const superReturnBlended = Object.entries(returnProfiles[superProfile] || {}).reduce((s, [k, w]) => s + (classReturns[k] || 0) * w, 0);
+    // Blended return for reporting. Always go via resolveProfileKey so legacy
+    // saves with G##_Taxable / G##_Zero account.profile values still find a
+    // matching allocation rather than collapsing to 0.
+    const superReturnBlended = Object.entries(returnProfiles[resolveProfileKey(superProfile)] || returnProfiles["G60"] || {}).reduce((s, [k, w]) => s + (classReturns[k] || 0) * w, 0);
 
     // Determine effective account types this year (respect future conversion dates)
     const p1AccType = (() => {
@@ -334,14 +386,48 @@ export function runProjection(state, useRandomReturns = false, seed = 0) {
     // Tax - detailed breakdown per person
     // ABP draws: tax-free after age 60 (ITAA 1997 s.303-10). TTR draws: assessable income.
     // Deductible investment loan interest reduces taxable income (ITAA 1997 s.8-1)
+    // ===== Tax pipeline (FY-aware) =====
+    // Franking credits — gross-up using actual franking %. credit = cash_div × frankingPct × 30/70.
+    // The full grossed-up amount is assessable; the franking credit is then refundable
+    // (subject to state.taxSettings.frankingRefundEnabled).
+    const taxSettings = state.taxSettings || {};
+    const dependents = personal.dependentChildren || 0;
+    const hasPrivateHealth = !!personal.hasPrivateHealth;
+    const corporateTaxRate = 0.30;
+
+    const p1FrankingPct = (income.person1.frankingPct ?? 100) / 100;
+    const p1CashDiv = income.person1.frankedDividends || 0;
+    const p1FrankingCredit = p1CashDiv * p1FrankingPct * (corporateTaxRate / (1 - corporateTaxRate));
+    const p1GrossedDiv = p1CashDiv + p1FrankingCredit;
+
     const p1DrawTaxable = p1AccType === "ttr"
       ? p1PensionDraw
       : (age1 >= 60 ? 0 : p1PensionDraw * 0.85);
-    const p1Taxable = Math.max(0, p1Salary - p1SalSac + (income.person1.otherTaxable || 0) + (income.person1.rentalIncome || 0) + p1DrawTaxable + (income.person1.frankedDividends || 0) * 1.3 - p1DeductibleInterest);
-    const p1IncomeTax = calcIncomeTax(p1Taxable, legislation.taxBrackets);
-    const p1Medicare = calcMedicare(p1Taxable, legislation.medicare);
-    const p1Tax = p1IncomeTax + p1Medicare;
-    const p1NetIncome = p1Salary - p1SalSac - p1Tax + (income.person1.taxFreeIncome || 0) + (income.person1.otherTaxable || 0) + (income.person1.rentalIncome || 0) + (income.person1.frankedDividends || 0);
+    const p1Taxable = Math.max(0, p1Salary - p1SalSac + (income.person1.otherTaxable || 0) + (income.person1.rentalIncome || 0) + p1DrawTaxable + p1GrossedDiv - p1DeductibleInterest);
+
+    // Pre-compute the symmetric p2 taxable + MLS-income basis so both spouses see
+    // the same family MLS income (no estimated/asymmetric branch).
+    let p2TaxablePre = 0;
+    let p2CashDivPre = 0;
+    let p2FrankingPctPre = 1;
+    let p2FrankingCreditPre = 0;
+    let p2DrawTaxablePre = 0;
+    if (isCouple) {
+      p2FrankingPctPre = (income.person2.frankingPct ?? 100) / 100;
+      p2CashDivPre = income.person2.frankedDividends || 0;
+      p2FrankingCreditPre = p2CashDivPre * p2FrankingPctPre * (corporateTaxRate / (1 - corporateTaxRate));
+      const p2GrossedDivPre = p2CashDivPre + p2FrankingCreditPre;
+      p2DrawTaxablePre = p2AccType === "ttr" ? p2PensionDraw : (age2 >= 60 ? 0 : p2PensionDraw * 0.85);
+      p2TaxablePre = Math.max(0, p2Salary - p2SalSac + (income.person2.otherTaxable || 0) + (income.person2.rentalIncome || 0) + p2DrawTaxablePre + p2GrossedDivPre - p2DeductibleInterest);
+    }
+    const p1ReportableExtras = (income.person1.reportableFringeBenefits || 0) + (income.person1.salarySacrifice || 0);
+    const p2ReportableExtras = isCouple ? ((income.person2.reportableFringeBenefits || 0) + (income.person2.salarySacrifice || 0)) : 0;
+    const illnessSeparated = !!personal.illnessSeparated;
+    const p1TaxResult = calcPersonTax({ taxable: p1Taxable, frankingCredit: p1FrankingCredit, age: age1, isCouple, illnessSeparated, hasPrivateHealth, dependents, reportableExtras: p1ReportableExtras, partnerMLSIncome: p2TaxablePre + p2ReportableExtras, legislation, taxSettings });
+    const p1IncomeTax = p1TaxResult.incomeTaxAfterOffsets;
+    const p1Medicare = p1TaxResult.medicare;
+    const p1Tax = p1TaxResult.totalTax; // may be negative when franking refund exceeds tax
+    const p1NetIncome = p1Salary - p1SalSac - p1Tax + (income.person1.taxFreeIncome || 0) + (income.person1.otherTaxable || 0) + (income.person1.rentalIncome || 0) + p1CashDiv;
 
     let p2NetIncome = 0;
     let p2IncomeTax = 0;
@@ -349,14 +435,13 @@ export function runProjection(state, useRandomReturns = false, seed = 0) {
     let p2Tax = 0;
     let p2Taxable = 0;
     if (isCouple) {
-      const p2DrawTaxable = p2AccType === "ttr"
-        ? p2PensionDraw
-        : (age2 >= 60 ? 0 : p2PensionDraw * 0.85);
-      p2Taxable = Math.max(0, p2Salary - p2SalSac + (income.person2.otherTaxable || 0) + (income.person2.rentalIncome || 0) + p2DrawTaxable + (income.person2.frankedDividends || 0) * 1.3 - p2DeductibleInterest);
-      p2IncomeTax = calcIncomeTax(p2Taxable, legislation.taxBrackets);
-      p2Medicare = calcMedicare(p2Taxable, legislation.medicare);
-      p2Tax = p2IncomeTax + p2Medicare;
-      p2NetIncome = p2Salary - p2SalSac - p2Tax + (income.person2.taxFreeIncome || 0) + (income.person2.otherTaxable || 0) + (income.person2.rentalIncome || 0) + (income.person2.frankedDividends || 0);
+      // Reuse pre-computed p2 basis so family MLS is symmetric with p1's view.
+      p2Taxable = p2TaxablePre;
+      const p2TaxResult = calcPersonTax({ taxable: p2Taxable, frankingCredit: p2FrankingCreditPre, age: age2, isCouple, illnessSeparated, hasPrivateHealth, dependents, reportableExtras: p2ReportableExtras, partnerMLSIncome: p1Taxable + p1ReportableExtras, legislation, taxSettings });
+      p2IncomeTax = p2TaxResult.incomeTaxAfterOffsets;
+      p2Medicare = p2TaxResult.medicare;
+      p2Tax = p2TaxResult.totalTax;
+      p2NetIncome = p2Salary - p2SalSac - p2Tax + (income.person2.taxFreeIncome || 0) + (income.person2.otherTaxable || 0) + (income.person2.rentalIncome || 0) + p2CashDivPre;
     }
 
     // Super tax on contributions (15% contributions tax)
@@ -377,15 +462,32 @@ export function runProjection(state, useRandomReturns = false, seed = 0) {
     }, 0);
     // Legacy support: fallback to annualLiving if no lifestyle periods
     const baseExp = lifestyleExp > 0 ? lifestyleExp : (expenses.annualLiving || 0) * Math.pow(1 + ((expenses.reducingIndex || 2.5) / 100), y);
+    // Indexation buckets — if an expense has indexationBucket set, prefer the
+    // bucket rate from legislation.indexation; otherwise fall back to the raw
+    // indexation % on the expense itself (for legacy saved states).
+    const bucketRate = (e) => {
+      const b = e.indexationBucket;
+      const idx = legislation.indexation || {};
+      if (b && idx[b] != null) return idx[b];
+      // Common alias: legacy "cpi" lowercase
+      if (b === "cpi" && idx.CPI != null) return idx.CPI;
+      return (e.indexation || 2.5) / 100;
+    };
     const recurringExp = (expenses.baseExpenses || []).reduce((s, e) => {
       if (year >= (e.startYear || 0) && year <= (e.endYear || 9999)) {
         const yearsFromStart = Math.max(0, year - (e.startYear || currentYear));
-        return s + (e.amount || 0) * Math.pow(1 + (e.indexation || 2.5) / 100, yearsFromStart);
+        return s + (e.amount || 0) * Math.pow(1 + bucketRate(e), yearsFromStart);
       }
       return s;
     }, 0);
-    const futureExp = expenses.futureExpenses.filter(e => year >= e.startYear && year <= e.endYear).reduce((s, e) => s + (e.amount || 0) * Math.pow(1 + (e.indexation || 2.5) / 100, y - (e.startYear - currentYear)), 0);
-    const totalExp = baseExp + recurringExp + futureExp;
+    const futureExp = expenses.futureExpenses.filter(e => year >= e.startYear && year <= e.endYear).reduce((s, e) => s + (e.amount || 0) * Math.pow(1 + bucketRate(e), y - (e.startYear - currentYear)), 0);
+    // Aged care planned costs — flow through to projection like futureExpenses.
+    // Lets the Aged Care tab feed real numbers into the retirement plan.
+    const agedCareExp = (expenses.agedCareExpenses || []).filter(e => year >= (e.startYear || 0) && year <= (e.endYear || 9999)).reduce((s, e) => {
+      const yrs = Math.max(0, y - ((e.startYear || currentYear) - currentYear));
+      return s + (e.amount || 0) * Math.pow(1 + bucketRate(e), yrs);
+    }, 0);
+    const totalExp = baseExp + recurringExp + futureExp + agedCareExp;
     const surplus = totalNetIncome - totalExp - liabilityPayments;
 
     // === Grow assets using per-asset-class returns with annual rebalancing ===
@@ -411,9 +513,11 @@ export function runProjection(state, useRandomReturns = false, seed = 0) {
     const p1ConvActive = p1ConvYear && year >= parseInt(p1ConvYear);
     const p1IsConversionYear = p1ConvYear && year === parseInt(p1ConvYear);
 
-    // Weighted income and growth returns for the profile
-    const p1IncomeRet = Object.entries(returnProfiles[superProfile] || {}).reduce((s, [k, w]) => s + (assetReturns[k]?.income || 0) * w, 0);
-    const p1GrowthRet = Object.entries(returnProfiles[superProfile] || {}).reduce((s, [k, w]) => s + (assetReturns[k]?.growth || 0) * w, 0);
+    // Weighted income and growth returns for the profile. Fallback to G60 so a
+    // missing/legacy profile doesn't silently produce 0% returns and distort super tax.
+    const p1ProfileAlloc = returnProfiles[superProfile] || returnProfiles["G60"] || {};
+    const p1IncomeRet = Object.entries(p1ProfileAlloc).reduce((s, [k, w]) => s + (assetReturns[k]?.income || 0) * w, 0);
+    const p1GrowthRet = Object.entries(p1ProfileAlloc).reduce((s, [k, w]) => s + (assetReturns[k]?.growth || 0) * w, 0);
 
     if (p1AccType === "pension" && !p1IsPartial) {
       // Full pension or full rollover: 0% tax on all earnings. Rollover itself is tax-free — no CGT.
@@ -448,7 +552,7 @@ export function runProjection(state, useRandomReturns = false, seed = 0) {
     // P2 Super
     let p2SuperGrown = { total: 0, holdings: {} };
     if (isCouple) {
-      const p2Profile = assets.superAccounts.p2Super?.profile || superProfile;
+      const p2Profile = resolveProfileKey(assets.superAccounts.p2Super?.profile || superProfile);
       p2SuperGrown = growPool(p2SuperH, p2Profile, classReturns, p2SuperCostRate);
       const p2SuperContribs = p2SG + p2SalSac + (income.person2.personalDeductibleSuper || 0) + (income.person2.nonConcessionalSuper || 0);
       p2SuperBal = p2SuperGrown.total + p2SuperContribs - p2PensionDraw;
@@ -458,8 +562,9 @@ export function runProjection(state, useRandomReturns = false, seed = 0) {
       const p2ConvActive = p2ConvYear && year >= parseInt(p2ConvYear);
       const p2IsConversionYear = p2ConvYear && year === parseInt(p2ConvYear);
 
-      const p2IncomeRet = Object.entries(returnProfiles[p2Profile] || {}).reduce((s, [k, w]) => s + (assetReturns[k]?.income || 0) * w, 0);
-      const p2GrowthRet = Object.entries(returnProfiles[p2Profile] || {}).reduce((s, [k, w]) => s + (assetReturns[k]?.growth || 0) * w, 0);
+      const p2ProfileAlloc = returnProfiles[p2Profile] || returnProfiles["G60"] || {};
+      const p2IncomeRet = Object.entries(p2ProfileAlloc).reduce((s, [k, w]) => s + (assetReturns[k]?.income || 0) * w, 0);
+      const p2GrowthRet = Object.entries(p2ProfileAlloc).reduce((s, [k, w]) => s + (assetReturns[k]?.growth || 0) * w, 0);
 
       if (p2AccType === "pension" && !p2IsPartial) {
         // Full pension: 0% tax. Rollover tax-free.

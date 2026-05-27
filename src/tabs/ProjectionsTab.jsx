@@ -2,8 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, ComposedChart } from "recharts";
 import { COLORS, THEMES } from "../data/themes";
 import { TABS } from "../data/tabs";
-import { ASSET_LABELS, DEFAULT_RETURN_PROFILES, DEFAULT_ASSET_RETURNS } from "../data/returnProfiles";
-import { DEFAULT_TAX_BRACKETS_2024, DEFAULT_SUPER_PARAMS, DEFAULT_CENTRELINK, DEFAULT_MEDICARE } from "../data/tax2024";
+import { ASSET_LABELS, DEFAULT_RETURN_PROFILES, DEFAULT_ASSET_RETURNS, profileDisplayLabel } from "../data/returnProfiles";
 import { Input, DateInput, FYInput, Select, Card, StatCard, Btn, Modal, HeaderBtn, ScenarioToggle, ReturnSummary, FinancialAssistant, DeficitWarningModal, DeficitWarningBadge } from "../components";
 import { fmt, pct, calcIncomeTax, calcMedicare, boxMullerRandom, calcDeprivedAssets, calcCentrelinkPension, calcDeemedIncome, getMonthlyEquiv, calcLoanPayoff, runProjection, buildDeficitInfo } from "../lib";
 export function ProjectionsTab({ state: nowState, setState: setNowState, setAfterState, projectionData: nowProjectionData, afterProjectionData, scenario, afterState, onActivateAfter, onActivateNow, onResetAfter, setTab }) {
@@ -163,7 +162,7 @@ export function ProjectionsTab({ state: nowState, setState: setNowState, setAfte
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10 , alignItems: "end" }}>
               <Input label="Balance" value={acc.balance} onChange={(v) => updSuper(sKey, "balance", v)} prefix="$" small />
               <Input label="Tax-Free" value={acc.taxFree} onChange={(v) => updSuper(sKey, "taxFree", v)} prefix="$" small />
-              <Select label="Profile" value={acc.profile} onChange={(v) => updSuper(sKey, "profile", v)} options={profiles.map(p => ({ value: p, label: p }))} small />
+              <Select label="Profile" value={acc.profile} onChange={(v) => updSuper(sKey, "profile", v)} options={profiles.map(p => ({ value: p, label: profileDisplayLabel(p, !!state.proMode) }))} small />
               <Select label="Type" value={acc.type} onChange={(v) => updSuper(sKey, "type", v)} small
                 options={[{ value: "accumulation", label: "Accumulation" }, { value: "ttr", label: "TTR Pension" }, { value: "pension", label: "Pension" }]} />
             </div>
@@ -190,7 +189,7 @@ export function ProjectionsTab({ state: nowState, setState: setNowState, setAfte
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 , alignItems: "end" }}>
               <Input label="Balance" value={acc.balance} onChange={(v) => updNonSuper(nKey, "balance", v)} prefix="$" small />
               <Input label="Unrealised Gains" value={acc.unrealisedGains} onChange={(v) => updNonSuper(nKey, "unrealisedGains", v)} prefix="$" small />
-              <Select label="Profile" value={acc.profile} onChange={(v) => updNonSuper(nKey, "profile", v)} options={profiles.map(p => ({ value: p, label: p }))} small />
+              <Select label="Profile" value={acc.profile} onChange={(v) => updNonSuper(nKey, "profile", v)} options={profiles.map(p => ({ value: p, label: profileDisplayLabel(p, !!state.proMode) }))} small />
             </div>
           </div>
         );

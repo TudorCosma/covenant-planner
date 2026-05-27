@@ -1,6 +1,6 @@
 export function calcDeprivedAssets(gifts, projectionYear, params) {
   if (!gifts || !gifts.length) return 0;
-  const cl = params || DEFAULT_CENTRELINK;
+  const cl = params || {};
   const freePerYear = cl.giftingFreeAreaPerYear || 10000;
   const freeOver5 = cl.giftingFreeAreaFiveYear || 30000;
   const deprivationYears = cl.giftingDeprivationPeriod || 5;

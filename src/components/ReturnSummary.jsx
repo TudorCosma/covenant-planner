@@ -1,9 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { COLORS } from "../data/themes";
 import { fmt, pct } from "../lib/format";
+import { resolveProfileKey, profileDisplayLabel } from "../data/returnProfiles";
 
-export function ReturnSummary({ profile, adminFee, managementCost, adviceCost, returnProfiles, assetReturns }) {
-  const rp = returnProfiles?.[profile] || returnProfiles?.["Balanced"] || {};
+export function ReturnSummary({ profile, adminFee, managementCost, adviceCost, returnProfiles, assetReturns, proMode = false }) {
+  const key = resolveProfileKey(profile);
+  const rp = returnProfiles?.[key] || returnProfiles?.["G60"] || Object.values(returnProfiles || {})[0] || {};
+  const displayName = profileDisplayLabel(key, proMode);
   const ar = assetReturns || {};
   let income = 0, growth = 0;
   for (const [cls, weight] of Object.entries(rp)) {
@@ -15,7 +18,7 @@ export function ReturnSummary({ profile, adminFee, managementCost, adviceCost, r
   const netReturn = totalReturn - totalCosts;
   return (
     <div style={{ padding: 10, background: COLORS.infoBg || "#ece8e1", borderRadius: 8 }}>
-      <div style={{ color: COLORS.textDim, fontSize: 10, fontWeight: 700, marginBottom: 8 }}>Portfolio Returns — {profile}</div>
+      <div style={{ color: COLORS.textDim, fontSize: 10, fontWeight: 700, marginBottom: 8 }}>Portfolio Returns — {displayName}</div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, marginBottom: 8 }}>
         <div>
           <div style={{ color: COLORS.textDim, fontSize: 9 }}>Income Return</div>

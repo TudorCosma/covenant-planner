@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, ComposedChart } from "recharts";
 import { COLORS, THEMES } from "../data/themes";
 import { TABS } from "../data/tabs";
-import { ASSET_LABELS, DEFAULT_RETURN_PROFILES, DEFAULT_ASSET_RETURNS } from "../data/returnProfiles";
+import { ASSET_LABELS, DEFAULT_RETURN_PROFILES, DEFAULT_ASSET_RETURNS, normalizeReturnProfiles, normalizeAccountProfile } from "../data/returnProfiles";
 import { DEFAULT_TAX_BRACKETS_2024, DEFAULT_SUPER_PARAMS, DEFAULT_CENTRELINK, DEFAULT_MEDICARE } from "../data/tax2024";
 import { Input, DateInput, FYInput, Select, Card, StatCard, Btn, Modal, HeaderBtn, ScenarioToggle, ReturnSummary, FinancialAssistant, DeficitWarningBadge, MortgageStressBadge } from "../components";
 import { fmt, pct, calcIncomeTax, calcMedicare, boxMullerRandom, calcDeprivedAssets, calcCentrelinkPension, calcDeemedIncome, getMonthlyEquiv, calcLoanPayoff, runProjection, buildDeficitInfo } from "../lib";
@@ -326,15 +326,45 @@ export function DashboardTab({ state: nowState, projectionData: nowProjectionDat
         // (e.g. minPensionDrawdownRates, earliestSuperAccessAge added April 2026).
         // Merge each saved state with current defaults so projections always have the
         // full SIS Reg 1.06(9A) schedule and access-age gate.
-        const mergeLegislation = (loaded) => ({
-          ...loaded,
-          legislation: {
-            ...loaded.legislation,
-            superParams: { ...DEFAULT_SUPER_PARAMS, ...(loaded.legislation?.superParams || {}) },
-            centrelink: { ...DEFAULT_CENTRELINK, ...(loaded.legislation?.centrelink || {}) },
-            medicare: { ...DEFAULT_MEDICARE, ...(loaded.legislation?.medicare || {}) },
-          },
-        });
+        // Profile migration: old saves carry the 22-key returnProfiles map (G##_Taxable
+        // / G##_Zero) and account.profile values like "G60_Taxable". The current build
+        // only ships the canonical 11 G-coded profiles. Rebuild the map and rewrite
+        // every account's profile field through resolveProfileKey so dropdowns + the
+        // projection engine both see canonical values.
+        const migrateAccountProfiles = (s) => {
+          if (!s?.assets) return s;
+          const fixAcc = (acc) => acc ? { ...acc, profile: normalizeAccountProfile(acc.profile) } : acc;
+          const fixList = (list) => Array.isArray(list) ? list.map(fixAcc) : list;
+          return {
+            ...s,
+            assets: {
+              ...s.assets,
+              superAccounts: {
+                ...s.assets.superAccounts,
+                p1Super:   fixAcc(s.assets.superAccounts?.p1Super),
+                p1Pension: fixAcc(s.assets.superAccounts?.p1Pension),
+                p2Super:   fixAcc(s.assets.superAccounts?.p2Super),
+                p2Pension: fixAcc(s.assets.superAccounts?.p2Pension),
+                p1Extra:   fixList(s.assets.superAccounts?.p1Extra),
+                p2Extra:   fixList(s.assets.superAccounts?.p2Extra),
+              },
+              nonSuper: Object.fromEntries(Object.entries(s.assets.nonSuper || {}).map(([k, v]) => [k, fixAcc(v)])),
+            },
+          };
+        };
+        const mergeLegislation = (loaded) => {
+          const migrated = migrateAccountProfiles(loaded);
+          return {
+            ...migrated,
+            returnProfiles: normalizeReturnProfiles(migrated.returnProfiles),
+            legislation: {
+              ...migrated.legislation,
+              superParams: { ...DEFAULT_SUPER_PARAMS, ...(migrated.legislation?.superParams || {}) },
+              centrelink: { ...DEFAULT_CENTRELINK, ...(migrated.legislation?.centrelink || {}) },
+              medicare: { ...DEFAULT_MEDICARE, ...(migrated.legislation?.medicare || {}) },
+            },
+          };
+        };
         // Always write the Now portion to the Now baseline (not the scenario-routed setter),
         // otherwise loading while viewing After would write json.now into afterState.
         setNowState(mergeLegislation(json.now));
@@ -509,6 +539,23 @@ export function DashboardTab({ state: nowState, projectionData: nowProjectionDat
           </div>
         </Modal>
       )}
+
+      {/* ── Active Legislation FY Badge — visible confirmation of FY selector ─ */}
+      {(() => {
+        const fyLabel = state.legislation?.fyLabel || state.legislationFY || "FY25-26";
+        const topBracket = (state.legislation?.taxBrackets || []).find(b => b.max === Infinity || b.max == null);
+        const sgRate = state.legislation?.superParams?.sgRate;
+        const ageQual = state.legislation?.centrelink?.ageQualifyingAge;
+        return (
+          <div style={{ background: `${COLORS.accent}08`, border: `1px solid ${COLORS.accent}40`, borderRadius: 8, padding: "8px 12px", marginBottom: 10, display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>
+            <span style={{ color: COLORS.accent, fontWeight: 700 }}>📅 Active legislation: {fyLabel}</span>
+            {topBracket && <span style={{ color: COLORS.textDim }}>Top marginal rate: <strong style={{ color: COLORS.text }}>{(topBracket.rate * 100).toFixed(0)}%</strong></span>}
+            {sgRate != null && <span style={{ color: COLORS.textDim }}>SG: <strong style={{ color: COLORS.text }}>{(sgRate * 100).toFixed(2)}%</strong></span>}
+            {ageQual && <span style={{ color: COLORS.textDim }}>Age Pension age: <strong style={{ color: COLORS.text }}>{ageQual}</strong></span>}
+            <span style={{ color: COLORS.textDim, fontSize: 10, marginLeft: "auto" }}>Switch FY in the header to recompute the whole projection.</span>
+          </div>
+        );
+      })()}
 
       {/* ── Value of Advice Card — always at top ───────────────── */}
       {(() => {

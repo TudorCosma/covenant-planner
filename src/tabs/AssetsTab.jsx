@@ -2,8 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, ComposedChart } from "recharts";
 import { COLORS, THEMES } from "../data/themes";
 import { TABS } from "../data/tabs";
-import { ASSET_LABELS, DEFAULT_RETURN_PROFILES, DEFAULT_ASSET_RETURNS } from "../data/returnProfiles";
-import { DEFAULT_TAX_BRACKETS_2024, DEFAULT_SUPER_PARAMS, DEFAULT_CENTRELINK, DEFAULT_MEDICARE } from "../data/tax2024";
+import { ASSET_LABELS, DEFAULT_RETURN_PROFILES, DEFAULT_ASSET_RETURNS, profileDisplayLabel } from "../data/returnProfiles";
 import { Input, DateInput, FYInput, Select, Card, StatCard, Btn, Modal, HeaderBtn, ScenarioToggle, ReturnSummary, FinancialAssistant } from "../components";
 import { fmt, pct, calcIncomeTax, calcMedicare, boxMullerRandom, calcDeprivedAssets, calcCentrelinkPension, calcDeemedIncome, getMonthlyEquiv, calcLoanPayoff, runProjection } from "../lib";
 export function AssetsTab({ state, setState, scenario, onActivateAfter, onActivateNow, onResetAfter, afterState }) {
@@ -11,6 +10,8 @@ export function AssetsTab({ state, setState, scenario, onActivateAfter, onActiva
   const profiles = Object.keys(state.returnProfiles);
   const returnProfiles = state.returnProfiles;
   const assetReturns = state.assetReturns;
+  const proMode = !!state.proMode;
+  const profileOptions = profiles.map(p => ({ value: p, label: profileDisplayLabel(p, proMode) }));
 
   const updSuper = (key, field, val) => setState(s => ({ ...s, assets: { ...s.assets, superAccounts: { ...s.assets.superAccounts, [key]: { ...s.assets.superAccounts[key], [field]: val } } } }));
   const updNonSuper = (key, field, val) => setState(s => ({ ...s, assets: { ...s.assets, nonSuper: { ...s.assets.nonSuper, [key]: { ...s.assets.nonSuper[key], [field]: val } } } }));
@@ -55,7 +56,7 @@ export function AssetsTab({ state, setState, scenario, onActivateAfter, onActiva
             <Input label="Tax-Free Component" value={acc.taxFree} onChange={(v) => updSuper(sKey, "taxFree", v)} prefix="$" />
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, alignItems: "end" }}>
-            <Select label="Portfolio Profile" value={acc.profile} onChange={(v) => updSuper(sKey, "profile", v)} options={profiles.map(p => ({ value: p, label: p }))} />
+            <Select label="Portfolio Profile" value={acc.profile} onChange={(v) => updSuper(sKey, "profile", v)} options={profileOptions} />
             <Select label="Account Type" value={acc.type} onChange={(v) => updSuper(sKey, "type", v)}
               options={[
                 { value: "accumulation", label: "Accumulation" },
@@ -150,7 +151,7 @@ export function AssetsTab({ state, setState, scenario, onActivateAfter, onActiva
             <Input label="Unrealised Gains" value={acc.unrealisedGains} onChange={(v) => updNonSuper(nKey, "unrealisedGains", v)} prefix="$" />
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, alignItems: "end" }}>
-            <Select label="Portfolio Profile" value={acc.profile} onChange={(v) => updNonSuper(nKey, "profile", v)} options={profiles.map(p => ({ value: p, label: p }))} />
+            <Select label="Portfolio Profile" value={acc.profile} onChange={(v) => updNonSuper(nKey, "profile", v)} options={profileOptions} />
             <Select label="Owner" value={acc.owner || nKey.replace("NonSuper","").replace("p1","p1").replace("p2","p2")} onChange={(v) => updNonSuper(nKey, "owner", v)}
               options={[{ value: "p1", label: personal.person1.name || "Person 1" }, ...(personal.isCouple ? [{ value: "p2", label: personal.person2.name || "Person 2" }] : []), { value: "joint", label: "Joint" }]} />
           </div>
@@ -196,7 +197,7 @@ export function AssetsTab({ state, setState, scenario, onActivateAfter, onActiva
     );
   };
 
-  const newExtraAcct = (type) => ({ balance: 0, taxFree: 0, profile: "Balanced", type, drawdownPct: 5, adminFee: 0.15, managementCost: 0.60, adviceCost: 0.50, description: "" });
+  const newExtraAcct = (type) => ({ balance: 0, taxFree: 0, profile: "G60", type, drawdownPct: 5, adminFee: 0.15, managementCost: 0.60, adviceCost: 0.50, description: "" });
   const addExtraSuper = (person, type) => setState(s => {
     const key = `${person}Extra`;
     return { ...s, assets: { ...s.assets, superAccounts: { ...s.assets.superAccounts, [key]: [...(s.assets.superAccounts[key] || []), newExtraAcct(type)] } } };
@@ -228,7 +229,7 @@ export function AssetsTab({ state, setState, scenario, onActivateAfter, onActiva
             <Input label="Tax-Free Component" value={acc.taxFree} onChange={(v) => updExtraSuper(person, idx, "taxFree", v)} prefix="$" />
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, alignItems: "end" }}>
-            <Select label="Portfolio Profile" value={acc.profile} onChange={(v) => updExtraSuper(person, idx, "profile", v)} options={profiles.map(p => ({ value: p, label: p }))} />
+            <Select label="Portfolio Profile" value={acc.profile} onChange={(v) => updExtraSuper(person, idx, "profile", v)} options={profileOptions} />
             <Select label="Account Type" value={acc.type} onChange={(v) => updExtraSuper(person, idx, "type", v)}
               options={[{ value: "accumulation", label: "Accumulation" }, { value: "ttr", label: "Transition to Retirement" }, { value: "pension", label: "Account-Based Pension" }]} />
           </div>
@@ -276,7 +277,7 @@ export function AssetsTab({ state, setState, scenario, onActivateAfter, onActiva
       <NonSuperForm nKey="p1NonSuper" label={`${personal.person1.name || "Person 1"} – Non-Super`} />
       {assets.nonSuper.p1NonSuper2 && <NonSuperForm nKey="p1NonSuper2" label={`${personal.person1.name || "Person 1"} – Non-Super 2`} />}
       <div style={{ marginBottom: 16 }}>
-        <Btn onClick={() => setState(s => ({ ...s, assets: { ...s.assets, nonSuper: { ...s.assets.nonSuper, p1NonSuper2: s.assets.nonSuper.p1NonSuper2 ? undefined : { balance: 0, unrealisedGains: 0, profile: "Balanced", adminFee: 0, managementCost: 0.60, adviceCost: 0.50, isDirectProperty: false } } } }))} color={COLORS.accent}>
+        <Btn onClick={() => setState(s => ({ ...s, assets: { ...s.assets, nonSuper: { ...s.assets.nonSuper, p1NonSuper2: s.assets.nonSuper.p1NonSuper2 ? undefined : { balance: 0, unrealisedGains: 0, profile: "G60", adminFee: 0, managementCost: 0.60, adviceCost: 0.50, isDirectProperty: false } } } }))} color={COLORS.accent}>
           {assets.nonSuper.p1NonSuper2 ? `− Remove ${personal.person1.name || "Person 1"} Non-Super 2` : `+ Add ${personal.person1.name || "Person 1"} Non-Super Account`}
         </Btn>
       </div>
@@ -285,7 +286,7 @@ export function AssetsTab({ state, setState, scenario, onActivateAfter, onActiva
         <NonSuperForm nKey="p2NonSuper" label={`${personal.person2.name || "Person 2"} – Non-Super`} />
         {assets.nonSuper.p2NonSuper2 && <NonSuperForm nKey="p2NonSuper2" label={`${personal.person2.name || "Person 2"} – Non-Super 2`} />}
         <div style={{ marginBottom: 16 }}>
-          <Btn onClick={() => setState(s => ({ ...s, assets: { ...s.assets, nonSuper: { ...s.assets.nonSuper, p2NonSuper2: s.assets.nonSuper.p2NonSuper2 ? undefined : { balance: 0, unrealisedGains: 0, profile: "Balanced", adminFee: 0, managementCost: 0.60, adviceCost: 0.50, isDirectProperty: false } } } }))} color={COLORS.accent}>
+          <Btn onClick={() => setState(s => ({ ...s, assets: { ...s.assets, nonSuper: { ...s.assets.nonSuper, p2NonSuper2: s.assets.nonSuper.p2NonSuper2 ? undefined : { balance: 0, unrealisedGains: 0, profile: "G60", adminFee: 0, managementCost: 0.60, adviceCost: 0.50, isDirectProperty: false } } } }))} color={COLORS.accent}>
             {assets.nonSuper.p2NonSuper2 ? `− Remove ${personal.person2.name || "Person 2"} Non-Super 2` : `+ Add ${personal.person2.name || "Person 2"} Non-Super Account`}
           </Btn>
         </div>
@@ -384,7 +385,177 @@ export function AssetsTab({ state, setState, scenario, onActivateAfter, onActiva
         </Card>
       ) : null)}
       <Btn onClick={addLifestyle} color={COLORS.green}>+ Add Lifestyle Asset</Btn>
+
+      {/* ── Lifetime Income Streams ───────────────────────────── */}
+      <LifetimeIncomeStreamsSection state={state} setState={setState} personal={personal} />
+
+      {/* ── Investment Bonds ──────────────────────────────────── */}
+      <InvestmentBondsSection state={state} setState={setState} personal={personal} />
+
+      {/* ── Reverse Mortgages ─────────────────────────────────── */}
+      <ReverseMortgagesSection state={state} setState={setState} personal={personal} />
     </div>
+  );
+}
+
+// ============================================================
+// LIFETIME INCOME STREAMS (annuities / lifetime pensions)
+// Centrelink 60/40 means-test (Social Security Act s.9BA).
+// ============================================================
+function LifetimeIncomeStreamsSection({ state, setState, personal }) {
+  const items = state.assets.lifetimeIncomeStreams || [];
+  const add = () => setState(s => ({ ...s, assets: { ...s.assets, lifetimeIncomeStreams: [...(s.assets.lifetimeIncomeStreams || []), {
+    description: "", owner: "p1", purchasePrice: 0, paymentRate: 5.5, purchaseYear: new Date().getFullYear(),
+    indexed: false, indexationRate: 2.5, gender: "male", purchaseAge: 65,
+  }] } }));
+  const upd = (i, f, v) => setState(s => { const arr = [...(s.assets.lifetimeIncomeStreams || [])]; arr[i] = { ...arr[i], [f]: v }; return { ...s, assets: { ...s.assets, lifetimeIncomeStreams: arr } }; });
+  const rm  = (i) => setState(s => ({ ...s, assets: { ...s.assets, lifetimeIncomeStreams: (s.assets.lifetimeIncomeStreams || []).filter((_, j) => j !== i) } }));
+
+  return (
+    <>
+      <h3 style={{ color: COLORS.text, fontSize: 14, fontFamily: "'DM Sans', sans-serif", marginBottom: 8, marginTop: 24, fontWeight: 600 }}>Lifetime Income Streams (Annuities)</h3>
+      <div style={{ padding: "8px 12px", background: `${COLORS.accent}12`, border: `1px solid ${COLORS.accent}30`, borderRadius: 8, marginBottom: 10 }}>
+        <p style={{ color: COLORS.accent, fontSize: 11, fontFamily: "'DM Sans', sans-serif", margin: 0 }}>
+          Lifetime annuities pay guaranteed income for life. Centrelink assesses 60% of the purchase price as an asset (drops to 30% past life expectancy threshold) and 60% of payments as income.
+        </p>
+      </div>
+      {items.map((it, i) => (
+        <Card key={i} title={it.description || `Lifetime Income Stream ${i + 1}`} actions={<button onClick={() => rm(i)} style={{ background: "none", border: "none", color: COLORS.red, cursor: "pointer", fontSize: 18 }}>×</button>}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <Input label="Description" value={it.description} onChange={(v) => upd(i, "description", v)} type="text" />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <Select label="Owner" value={it.owner} onChange={(v) => upd(i, "owner", v)} options={[
+                { value: "p1", label: personal.person1.name || "Person 1" },
+                ...(personal.isCouple ? [{ value: "p2", label: personal.person2.name || "Person 2" }] : []),
+                { value: "joint", label: "Joint" },
+              ]} />
+              <FYInput label="Purchase FY" value={it.purchaseYear} onChange={(v) => upd(i, "purchaseYear", v)} />
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <Input label="Purchase Price" value={it.purchasePrice} onChange={(v) => upd(i, "purchasePrice", v)} prefix="$" />
+              <Input label="Payment Rate (% of purchase pa)" value={it.paymentRate} onChange={(v) => upd(i, "paymentRate", v)} suffix="%" />
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+              <Input label="Age at Purchase" value={it.purchaseAge} onChange={(v) => upd(i, "purchaseAge", v)} />
+              <Select label="Gender (life exp)" value={it.gender} onChange={(v) => upd(i, "gender", v)} options={[
+                { value: "male", label: "Male" }, { value: "female", label: "Female" },
+              ]} />
+              <Input label="Indexation %" value={it.indexationRate} onChange={(v) => upd(i, "indexationRate", v)} suffix="%" />
+            </div>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: COLORS.text, fontFamily: "'DM Sans', sans-serif" }}>
+              <input type="checkbox" checked={!!it.indexed} onChange={(e) => upd(i, "indexed", e.target.checked)} style={{ accentColor: COLORS.accent }} />
+              Indexed (payments grow each year)
+            </label>
+            <div style={{ padding: 10, background: COLORS.infoBg || "#ece8e1", borderRadius: 8, fontSize: 11, color: COLORS.textDim }}>
+              Initial annual payment: <strong>{fmt(((it.purchasePrice || 0) * (it.paymentRate || 0)) / 100)}</strong>
+              {" · "}Centrelink assessable asset: <strong>{fmt((it.purchasePrice || 0) * 0.6)}</strong>
+              {" · "}Centrelink assessable income: <strong>{fmt((((it.purchasePrice || 0) * (it.paymentRate || 0)) / 100) * 0.6)}</strong>
+            </div>
+          </div>
+        </Card>
+      ))}
+      <Btn onClick={add} color={COLORS.green}>+ Add Lifetime Income Stream</Btn>
+    </>
+  );
+}
+
+// ============================================================
+// INVESTMENT BONDS
+// 30% internal tax; tax-paid in owner's hands after 10 years; partial relief 8-10y.
+// ============================================================
+function InvestmentBondsSection({ state, setState, personal }) {
+  const items = state.assets.investmentBonds || [];
+  const add = () => setState(s => ({ ...s, assets: { ...s.assets, investmentBonds: [...(s.assets.investmentBonds || []), {
+    description: "", owner: "p1", balance: 0, startYear: new Date().getFullYear(), expectedReturn: 6.5, internalTaxRate: 30,
+  }] } }));
+  const upd = (i, f, v) => setState(s => { const arr = [...(s.assets.investmentBonds || [])]; arr[i] = { ...arr[i], [f]: v }; return { ...s, assets: { ...s.assets, investmentBonds: arr } }; });
+  const rm  = (i) => setState(s => ({ ...s, assets: { ...s.assets, investmentBonds: (s.assets.investmentBonds || []).filter((_, j) => j !== i) } }));
+
+  return (
+    <>
+      <h3 style={{ color: COLORS.text, fontSize: 14, fontFamily: "'DM Sans', sans-serif", marginBottom: 8, marginTop: 24, fontWeight: 600 }}>Investment Bonds</h3>
+      <div style={{ padding: "8px 12px", background: `${COLORS.accent}12`, border: `1px solid ${COLORS.accent}30`, borderRadius: 8, marginBottom: 10 }}>
+        <p style={{ color: COLORS.accent, fontSize: 11, fontFamily: "'DM Sans', sans-serif", margin: 0 }}>
+          Insurance bonds are taxed internally at <strong>30%</strong>. Withdrawals after 10 years are tax-free to the owner. Useful for high-income earners and estate planning.
+        </p>
+      </div>
+      {items.map((it, i) => {
+        const yearsHeld = Math.max(0, new Date().getFullYear() - (it.startYear || 0));
+        const milestone = yearsHeld >= 10 ? "✓ Tax-free withdrawal" : yearsHeld >= 9 ? "67% taxable on withdrawal" : yearsHeld >= 8 ? "33% taxable on withdrawal" : "Fully taxable on withdrawal";
+        return (
+          <Card key={i} title={it.description || `Investment Bond ${i + 1}`} actions={<button onClick={() => rm(i)} style={{ background: "none", border: "none", color: COLORS.red, cursor: "pointer", fontSize: 18 }}>×</button>}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <Input label="Description" value={it.description} onChange={(v) => upd(i, "description", v)} type="text" />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <Select label="Owner" value={it.owner} onChange={(v) => upd(i, "owner", v)} options={[
+                  { value: "p1", label: personal.person1.name || "Person 1" },
+                  ...(personal.isCouple ? [{ value: "p2", label: personal.person2.name || "Person 2" }] : []),
+                  { value: "joint", label: "Joint" },
+                ]} />
+                <FYInput label="Bond Start FY" value={it.startYear} onChange={(v) => upd(i, "startYear", v)} />
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                <Input label="Balance" value={it.balance} onChange={(v) => upd(i, "balance", v)} prefix="$" />
+                <Input label="Expected Return" value={it.expectedReturn} onChange={(v) => upd(i, "expectedReturn", v)} suffix="%" />
+                <Input label="Internal Tax Rate" value={it.internalTaxRate} onChange={(v) => upd(i, "internalTaxRate", v)} suffix="%" />
+              </div>
+              <div style={{ padding: 10, background: COLORS.infoBg || "#ece8e1", borderRadius: 8, fontSize: 11, color: COLORS.textDim }}>
+                Held <strong>{yearsHeld}</strong> years · {milestone}
+              </div>
+            </div>
+          </Card>
+        );
+      })}
+      <Btn onClick={add} color={COLORS.green}>+ Add Investment Bond</Btn>
+    </>
+  );
+}
+
+// ============================================================
+// REVERSE MORTGAGES
+// Home equity release. Interest capitalises. No negative equity guarantee.
+// ============================================================
+function ReverseMortgagesSection({ state, setState, personal }) {
+  const items = state.assets.reverseMortgages || [];
+  const add = () => setState(s => ({ ...s, assets: { ...s.assets, reverseMortgages: [...(s.assets.reverseMortgages || []), {
+    description: "", currentBalance: 0, lumpSumDrawn: 0, regularDrawdown: 0,
+    interestRate: 8.5, startYear: new Date().getFullYear(), maxLVR: 25,
+  }] } }));
+  const upd = (i, f, v) => setState(s => { const arr = [...(s.assets.reverseMortgages || [])]; arr[i] = { ...arr[i], [f]: v }; return { ...s, assets: { ...s.assets, reverseMortgages: arr } }; });
+  const rm  = (i) => setState(s => ({ ...s, assets: { ...s.assets, reverseMortgages: (s.assets.reverseMortgages || []).filter((_, j) => j !== i) } }));
+
+  return (
+    <>
+      <h3 style={{ color: COLORS.text, fontSize: 14, fontFamily: "'DM Sans', sans-serif", marginBottom: 8, marginTop: 24, fontWeight: 600 }}>Reverse Mortgages</h3>
+      <div style={{ padding: "8px 12px", background: `${COLORS.orange}15`, border: `1px solid ${COLORS.orange}40`, borderRadius: 8, marginBottom: 10 }}>
+        <p style={{ color: COLORS.orange, fontSize: 11, fontFamily: "'DM Sans', sans-serif", margin: 0 }}>
+          Reverse mortgages release home equity as cash. Interest compounds and the balance grows over time. Repaid when the home is sold or last borrower vacates. Statutory "no negative equity" guarantee applies.
+        </p>
+      </div>
+      {items.map((it, i) => (
+        <Card key={i} title={it.description || `Reverse Mortgage ${i + 1}`} actions={<button onClick={() => rm(i)} style={{ background: "none", border: "none", color: COLORS.red, cursor: "pointer", fontSize: 18 }}>×</button>}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <Input label="Description" value={it.description} onChange={(v) => upd(i, "description", v)} type="text" />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <Input label="Current Balance Owed" value={it.currentBalance} onChange={(v) => upd(i, "currentBalance", v)} prefix="$" />
+              <FYInput label="Start FY" value={it.startYear} onChange={(v) => upd(i, "startYear", v)} />
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <Input label="Lump Sum Drawn at Start" value={it.lumpSumDrawn} onChange={(v) => upd(i, "lumpSumDrawn", v)} prefix="$" />
+              <Input label="Regular Annual Drawdown" value={it.regularDrawdown} onChange={(v) => upd(i, "regularDrawdown", v)} prefix="$" />
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <Input label="Interest Rate" value={it.interestRate} onChange={(v) => upd(i, "interestRate", v)} suffix="%" />
+              <Input label="Max LVR (% of home)" value={it.maxLVR} onChange={(v) => upd(i, "maxLVR", v)} suffix="%" />
+            </div>
+            <div style={{ padding: 10, background: COLORS.infoBg || "#ece8e1", borderRadius: 8, fontSize: 11, color: COLORS.textDim }}>
+              Balance after 1 year at {it.interestRate}%: <strong>{fmt((it.currentBalance || 0) * (1 + (it.interestRate || 0) / 100) + (it.regularDrawdown || 0))}</strong>
+            </div>
+          </div>
+        </Card>
+      ))}
+      <Btn onClick={add} color={COLORS.green}>+ Add Reverse Mortgage</Btn>
+    </>
   );
 }
 
