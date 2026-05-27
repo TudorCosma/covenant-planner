@@ -67,51 +67,92 @@ Replace the "land on empty Dashboard" experience with a 5-minute conversation th
 - **Skipped entirely when Pro mode is on** — Tudor doesn't need a wizard with his own clients.
 - Re-launchable from the Save-status menu as **"Restart with the wizard"**.
 
-### Question flow (Tudor-approved)
+### Question flow (Tudor-approved, 27 May 2026)
+
+Situation block (fixed, in order):
 
 | # | Question | Type | Notes |
 |---|----------|------|-------|
 | 1 | What's your first name? (and partner's, if you have one) | text + optional text | Sets `isCouple` |
 | 2 | How old are you both? | number per person | |
-| 3 | When would you like to stop working? | age per person | This is a **goal**, stored as `goals.targetRetirementAge` |
-| 4 | What's your combined household take-home salary right now? | currency | Default split 60/40 across couple, with **"edit split"** link |
-| 5 | How much is in your super, all up? | currency per person | |
+| 3 | What's your combined household take-home salary right now? | currency | Default split 60/40 across couple, with **"edit split"** link |
+| 4 | How much is in your super, all up? | currency per person | Default return = **60% Growth allocation, 1% fees** (see Returns defaults below) |
+| 5 | What other investments do you have? | repeatable rows | Pick a kind (Property, Shares/ETFs, Cash/Term Deposit, Other), enter current value, optional label. Each row uses the asset-type default return — no need to set returns in the wizard. "Add another" / "None / Skip". |
 | 6 | What do you spend per month on living costs? | currency | × 12 → annual pre-retirement expense |
-| 7 | What income would you like in retirement, per year, in today's dollars? | currency | **Goal**, stored as `goals.targetRetirementIncome` |
-| 8 | Do you own your home? | yes/no | Sets `homeowner` + primary residence default |
+| 7 | Do you own your home? | yes/no → if yes: estimated value | Sets `homeowner` + primary residence with value |
+
+Goals block (loop, replaces the old single retirement-goal question):
+
+| # | Question | Type | Notes |
+|---|----------|------|-------|
+| 8 | **"What are you wanting to plan for?"** | quick-pick chip + custom text | Chips: Retirement · Buy a house · Pay off debt · Sabbatical / career break · Kids' education · Travel · Big purchase · Something else. Each pick opens a small follow-up: target date (or age), target $ amount where relevant, and a one-line label. |
+| 8a | After saving the goal → loop back to #8 | — | Two buttons: **"Add another goal"** and **"That'll do for now — I can add more later"**. Loop ends when the user picks the latter, or after 5 goals (soft cap, can be lifted on a Goals tab). |
 
 Each question has a **"I'll set this up later"** link with a sensible default. One screen per question on mobile, progress dots at top, Back always available.
 
+### Returns defaults (used when wizard skips returns config)
+- **Superannuation:** 60% Growth allocation, 1% fees. Maps to the `Balanced (60/40 growth)` return profile in `DEFAULT_RETURN_PROFILES` (create one if it doesn't exist yet with that exact split).
+- **Property:** uses the existing residential-property asset-class return from `DEFAULT_ASSET_RETURNS`.
+- **Shares/ETFs:** uses the existing AU/global equities asset-class return (blend per existing default).
+- **Cash/Term Deposit:** uses the existing cash asset-class return.
+- **Other:** flagged neutral 0% real return until the user opens the Returns tab.
+
+The user can override any of these later on the Returns & Portfolios tab — the wizard never asks about returns directly.
+
 ### After completion
-- Dashboard renders the user's projection plus their Goal Progress (feature #4) against the goals they just set.
-- A **"Plan ready"** banner lists the 8 inputs as chips; tap any chip → jumps to the right tab with that field focused.
-- Encouraging CTA: **"Explore what changes if you adjust things"** → opens the scenario buttons. Note the wording — "explore", not "improve".
+- Dashboard renders the user's projection plus their Goal Progress (one bar per goal they set).
+- A **"Plan ready"** banner lists the captured inputs as chips; tap any chip → jumps to the right tab with that field focused.
+- Encouraging CTA: **"Explore what changes if you adjust things"** → opens the scenario buttons. Wording is "explore", not "improve".
 
 ### Implementation
 
 ```
 covenant-planner/src/wizard/
-├── Wizard.jsx           // <Wizard onComplete={(state) => setState(state)} />
-├── WizardStep.jsx       // shared shell
+├── Wizard.jsx                // <Wizard onComplete={(state) => setState(state)} />
+├── WizardStep.jsx            // shared shell
 └── steps/
     ├── NamesStep.jsx
     ├── AgesStep.jsx
-    ├── RetirementAgeStep.jsx   // → goals.targetRetirementAge
     ├── SalaryStep.jsx
     ├── SuperStep.jsx
+    ├── OtherInvestmentsStep.jsx  // repeatable rows, asset-type default returns
     ├── ExpensesStep.jsx
-    ├── RetirementIncomeStep.jsx // → goals.targetRetirementIncome
-    └── HomeStep.jsx
+    ├── HomeStep.jsx
+    └── GoalsStep.jsx              // loop with "Add another" / "That'll do for now"
 ```
 
-New top-level `state.goals` object:
+### Goals data shape (multi-goal, flexible)
+
 ```js
-goals: {
-  targetRetirementAge: { p1: 65, p2: 65 },   // what they typed in wizard Q3
-  targetRetirementIncome: 80000,             // wizard Q7 (today's $)
-  targetLastUntilAge: 90,                    // editable on a future Goals tab
-}
+state.goals = [
+  // Each goal is one of these shapes; `kind` discriminates.
+  {
+    id: "g_retirement",
+    kind: "retirement",
+    label: "Retire at 65 with $80k/yr",
+    targetRetirementAge: { p1: 65, p2: 65 },
+    targetRetirementIncome: 80000,      // today's $
+    targetLastUntilAge: 90,
+  },
+  {
+    id: "g_house",
+    kind: "house",
+    label: "Buy a house by 2030",
+    targetYear: 2030,
+    targetDeposit: 200000,
+  },
+  {
+    id: "g_sabbatical",
+    kind: "sabbatical",
+    label: "Take a year off at 50",
+    targetAge: 50,
+    targetCost: 80000,
+  },
+  // ... any number of additional goals, each with their own progress bar
+];
 ```
+
+Each `kind` has a matching progress calculator in `src/lib/goalProgress.js`. Adding a new goal type = add a `kind`, a calculator, and a wizard sub-form. Goals tab lets the user add / edit / delete / reorder.
 
 ---
 
@@ -239,27 +280,32 @@ Replace the per-CFP-rejected "0–100 readiness score + best-next-action recomme
 
 ### What's shown
 
-Three progress bars at the top of the Dashboard, one per goal the user set in the wizard (or on a future Goals tab):
+One progress bar per goal the user added in the wizard (or on the Goals tab) — so the count is dynamic, not fixed at three. A retirement goal expands into its constituent sub-bars (target age, target income, longevity) because those are independently meaningful; other kinds get a single bar.
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│ Your retirement goals                          [Edit goals]  │
+│ Your goals                                     [Edit goals]  │
 ├──────────────────────────────────────────────────────────────┤
-│ Retire by age 65                                             │
-│ ████████████████████░░░░  Plan retires at age 67             │
+│ Retirement — retire at 65 with $80k/yr, last to 90           │
+│   Retire by age 65                                           │
+│   ████████████████████░░░░  Plan retires at age 67           │
+│   Retirement income of $80,000/yr                            │
+│   ███████████████░░░░░░░░░  Plan delivers avg $62,000/yr     │
+│   Savings last to age 90                                     │
+│   ████████████████████████  Plan lasts to age 92 ✓           │
 │                                                              │
-│ Retirement income of $80,000/yr                              │
-│ ███████████████░░░░░░░░░  Plan delivers avg $62,000/yr (78%) │
+│ Buy a house by 2030 — $200k deposit                          │
+│ ██████████░░░░░░░░░░░░░░  On track for $95k by 2030 (48%)    │
 │                                                              │
-│ Savings last to age 90                                       │
-│ ████████████████████████  Plan lasts to age 92 ✓             │
+│ Sabbatical at 50 — $80k cost                                 │
+│ ████████████████████████  Funded ✓                           │
 └──────────────────────────────────────────────────────────────┘
 ```
 
 - Each bar fills up to 100% if the projection meets or exceeds the goal.
-- Below 100% = the bar shows the actual %, with the projected vs goal number.
-- Above 100% = the bar fills, with a ✓.
-- **Never a single composite score.** Three independent goals, three independent bars.
+- Below 100% → bar shows the actual %, with projected vs goal number, **and** expands to show the lever-nudge card (see §2 template) inline beneath it.
+- Above 100% → bar fills with a ✓.
+- **Never a single composite score.** N independent goals, N independent bars.
 
 ### Phrasing rules
 - "Plan retires at age 67" — describes what the model produces given current inputs.
@@ -297,32 +343,83 @@ export function computeGoalProgress(projectionData, state) {
 
 ---
 
-## 5. AI Financial Assistant — advice guardrails
+## 5. AI Financial Assistant — meet Ana
 
-The chat answers two kinds of question freely: **general financial concepts** ("what is concessional contribution tax?") and **how to use this app** ("how do I model a downsize?"). It refuses **personal advice questions** ("should I…?", "can I retire?", "am I on track?"). Current state already has `ADVICE_REFERRAL` fallback in `knowledgeBase.js`. We harden it:
+### Identity
 
-### Changes
-- **Rename** from "Financial Assistant" to **"Ask about financial concepts"** (sets expectation up front).
-- **Disclaimer prepended** to every answer: "Educational only — not personal advice. Talk to an advisor for your situation."
-- **Hard refuser** for prescriptive questions (regex list below) → returns ADVICE_REFERRAL immediately without searching the KB.
-- **Audit existing KNOWLEDGE_BASE** for any answer that crosses the line (e.g. "the best strategy is…") and rewrite to "one approach is… an advisor can help you decide if it's right for you".
-- **Permitted to answer** "how does this app handle X?" / "where do I change Y?" / "what's the difference between X and Y?" — these are app guidance + education, not advice.
-- Shrink the floating bubble visually so it reads as a secondary tool, not a primary feature.
+Rename the assistant to **"Ana — your AI finance guide"** (alternate considered: "Covie" as a Covenant nod; defaulting to **Ana** per Tudor's call).
+
+Ana is positioned as a **knowledgeable, warm Australian finance educator** — not a chatbot, not an advisor. She explains concepts, helps the user navigate the app, and is allergic to giving personal financial advice. She has personality: dry humour, conversational, occasionally a little cheeky, never preachy. She uses contractions, doesn't open every answer with "Great question!", doesn't say "As an AI…", and never sounds like a first-gen chatbot.
+
+### Voice guide
+
+- **Tone:** warm-professional. A friend who happens to know super legislation cold.
+- **Length:** short. Default to 2–3 short paragraphs unless the user explicitly asks for depth.
+- **Australian:** AU spellings (organisation, optimise), AU context (ATO, ASIC, APRA), AU idiom in moderation — natural, not parody.
+- **Banned phrases:** "As an AI…", "I'm just a chatbot…", "Great question!", "I'd be happy to help!", "Here's a comprehensive guide to…".
+- **Always close** an educational answer with a one-line nudge to either try the relevant tab/button or talk to an advisor for personal questions.
+
+### Input limits
+
+- **Max input: 500 words** (≈ 3000 chars). Live counter on the textbox. Submit disabled past the cap with a tooltip: *"Trim it down to 500 words or fewer — I'll lose the thread otherwise."*
+- Reject empty / whitespace-only submissions silently (no-op).
+
+### What Ana answers vs refuses
+
+| Question type | Ana's behaviour |
+|---|---|
+| General concept ("what's concessional contributions tax?") | Answer it, plainly, in 2–3 paragraphs. |
+| How-to-use-the-app ("where do I model a downsize?") | Answer it; ideally name the tab + field. |
+| Comparative concept ("difference between TTR and ABP?") | Answer it. |
+| Generic principle ("do regular expenses matter more than one-offs?") | Answer it (educational). |
+| **Prescriptive personal advice** ("should I salary sacrifice?", "can I retire at 60?", "am I on track?", "is this enough super?") | **Refuse** with one of the escalation lines below. Do NOT search the KB. Suggest the relevant scenario button or Goals tab instead. |
 
 ### Refusal patterns (regex, case-insensitive)
 ```js
 const ADVICE_TRIGGERS = [
-  /\bshould i\b/i,
-  /\bcan i (retire|afford|stop)\b/i,
-  /\b(am i|are we) (on track|going to be ok|ready)\b/i,
-  /\bis it (a )?good idea\b/i,
+  /\bshould (i|we)\b/i,
+  /\bcan (i|we) (retire|afford|stop working|do this)\b/i,
+  /\b(am i|are we) (on track|going to be ok|ready|set|fine)\b/i,
+  /\bis (it|this|that) (a )?(good|bad|enough|right) (idea|move|amount|strategy)\b/i,
   /\bwhat (do you|would you) recommend\b/i,
   /\bwhat should (i|we)\b/i,
-  /\bbest (strategy|option|choice) for me\b/i,
+  /\bbest (strategy|option|choice|fund|allocation) for (me|us)\b/i,
+  /\bwill (i|we) have enough\b/i,
+  /\bdo (i|we) have enough\b/i,
 ];
 ```
 
-If any match → return `ADVICE_REFERRAL` text, do not search the KB.
+### Escalating refusals (no two in a row should sound the same)
+
+Track `state.session.aiRefusalCount` (resets per browser session, not persisted). On each ADVICE_TRIGGER match, increment the counter and pick a line from the matching tier. Within a tier, pick at random — never repeat the same line back-to-back.
+
+**Tier 1 (1st refusal — gentle, sets the rule):**
+- "That's the kind of call a planner who knows your full picture should make, not me. I can explain how the app handles it, or you can try the scenario buttons up top to see the impact yourself. Want me to point at the right tab?"
+- "Telling you what to do crosses into personal advice — out of bounds for me. I can walk you through the concept, or show you which tab to play with. Your shout."
+
+**Tier 2 (2nd refusal — still polite, slightly amused):**
+- "Same answer, fresh wrapping: I don't do 'should you' — that's an advisor's job. But I can absolutely explain *why* it's not a simple yes/no. Want the long version?"
+- "Still nope on the personal advice front. The good news: the lever buttons on the Dashboard let you stress-test the question yourself. Want me to show you which one to try first?"
+
+**Tier 3 (3rd refusal — dry, knowing wink):**
+- "Round three. I'll keep saying no in increasingly creative ways if you'd like — but 'should I' will always land in 'ask a human who knows you'. I'm a teacher, not an advisor."
+- "You're nothing if not persistent. Still can't tell you what to do, but I *can* tell you the three numbers in the projection that would change my mind if I were one — want those?"
+
+**Tier 4 (4th refusal — outright cheeky):**
+- "If persistence were a financial strategy, you'd be retired already. It isn't, sadly, and I'm still not your advisor. Concept questions any time, though."
+- "At this rate I'm going to start charging by the deflection. Truly — that one's for a planner. Want me to explain a related concept instead?"
+
+**Tier 5+ (5th and onwards — playful surrender, but still no):**
+- "Four times in. I'm tempted to start scoring this. The answer to 'should I' remains 'talk to a human' — but I'll happily nerd out on the underlying concept until you do."
+- "Look, you and I both know how this ends. I'm not going to advise. But if you tell me which goal you're trying to move, I'll point you at the lever in the app that affects it most."
+
+Each refusal also surfaces a quick-action: a button "Find me an advisor →" (links to a covenantwealth.com.au contact page when published; placeholder URL until Tudor confirms) and a chip for "Show me which app lever moves this".
+
+### Other changes
+- **Disclaimer prepended** to every educational answer (not refusals — refusals carry their own message): *"Educational only — not personal advice. For your own situation, talk to a planner."*
+- **Audit existing KNOWLEDGE_BASE** for prescriptive phrasing and rewrite to neutral education + "an advisor can help you decide if it's right for you".
+- **Shrink the floating bubble** visually so Ana reads as a secondary tool, not the headline feature.
+- **Persistent personality:** the system prompt / KB header carries Ana's voice guide so every answer feels like one voice, not a database of unrelated snippets.
 
 ---
 
@@ -350,8 +447,10 @@ If any match → return `ADVICE_REFERRAL` text, do not search the KB.
 | 1. Wizard salary capture | **Combined household, with "edit split" link for couples** |
 | 2. Downsize scenario % proceeds | **30% of current home value, with "edit" override on the button** |
 | 3. Readiness Score weights | **Scrapped composite score** — replaced with neutral Goal Progress bars against user-set goals. When a bar is below 100%, app shows a **lever nudge** listing which inputs in this app tend to move that bar (general education + how-to-use-the-app, paired with disclaimer + advisor referral). |
-| 4. AI Assistant future | **Rename + shrink + harden** with regex refuser for prescriptive questions ("should I", "can I retire", "am I on track"). Permitted to answer general financial concepts and how-to-use-this-app questions. Every answer carries the educational-only disclaimer. |
+| 4. AI Assistant future | **Renamed to "Ana — your AI finance guide"** with a defined personality (warm AU finance educator, dry humour, no first-gen-chatbot vibes). Regex refuser on prescriptive questions, with **5 escalating tiers of refusal lines** so persistent advice-seekers get a variety of responses (each tier funnier than the last). 500-word input limit. Permitted to answer general concepts + how-to-use-this-app. Every educational answer carries the educational-only disclaimer. |
 | 5. Pro mode + wizard | **Pro mode skips wizard entirely** |
+| 6. Wizard goals | **Open-ended multi-goal loop** — "What are you wanting to plan for?" with quick-pick chips (Retirement, Buy a house, Sabbatical, etc.) + "Add another" / "That'll do for now" exit. Goals are an array of typed objects, one progress bar per goal. |
+| 7. Wizard asset capture | **Adds an Other Investments step** (Property, Shares/ETFs, Cash, Other) with current value per row. **Returns are NOT asked in the wizard** — each asset uses the asset-type default. Super defaults to 60% Growth allocation + 1% fees. |
 
 ---
 
