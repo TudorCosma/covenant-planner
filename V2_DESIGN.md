@@ -343,13 +343,13 @@ export function computeGoalProgress(projectionData, state) {
 
 ---
 
-## 5. AI Financial Assistant — meet Ana
+## 5. AI Financial Assistant — meet Covie
 
 ### Identity
 
-Rename the assistant to **"Ana — your AI finance guide"** (alternate considered: "Covie" as a Covenant nod; defaulting to **Ana** per Tudor's call).
+Rename the assistant to **"Covie — your AI finance guide"** (Tudor's pick; the name nods to Covenant).
 
-Ana is positioned as a **knowledgeable, warm Australian finance educator** — not a chatbot, not an advisor. She explains concepts, helps the user navigate the app, and is allergic to giving personal financial advice. She has personality: dry humour, conversational, occasionally a little cheeky, never preachy. She uses contractions, doesn't open every answer with "Great question!", doesn't say "As an AI…", and never sounds like a first-gen chatbot.
+Covie is positioned as a **knowledgeable, warm Australian finance educator** — not a chatbot, not an advisor. She explains concepts, helps the user navigate the app, and is allergic to giving personal financial advice. She has personality: dry humour, conversational, occasionally a little cheeky, never preachy. She uses contractions, doesn't open every answer with "Great question!", doesn't say "As an AI…", and never sounds like a first-gen chatbot.
 
 ### Voice guide
 
@@ -364,9 +364,9 @@ Ana is positioned as a **knowledgeable, warm Australian finance educator** — n
 - **Max input: 500 words** (≈ 3000 chars). Live counter on the textbox. Submit disabled past the cap with a tooltip: *"Trim it down to 500 words or fewer — I'll lose the thread otherwise."*
 - Reject empty / whitespace-only submissions silently (no-op).
 
-### What Ana answers vs refuses
+### What Covie answers vs refuses
 
-| Question type | Ana's behaviour |
+| Question type | Covie's behaviour |
 |---|---|
 | General concept ("what's concessional contributions tax?") | Answer it, plainly, in 2–3 paragraphs. |
 | How-to-use-the-app ("where do I model a downsize?") | Answer it; ideally name the tab + field. |
@@ -418,8 +418,8 @@ Each refusal also surfaces a quick-action: a button "Find me an advisor →" (li
 ### Other changes
 - **Disclaimer prepended** to every educational answer (not refusals — refusals carry their own message): *"Educational only — not personal advice. For your own situation, talk to a planner."*
 - **Audit existing KNOWLEDGE_BASE** for prescriptive phrasing and rewrite to neutral education + "an advisor can help you decide if it's right for you".
-- **Shrink the floating bubble** visually so Ana reads as a secondary tool, not the headline feature.
-- **Persistent personality:** the system prompt / KB header carries Ana's voice guide so every answer feels like one voice, not a database of unrelated snippets.
+- **Shrink the floating bubble** visually so Covie reads as a secondary tool, not the headline feature.
+- **Persistent personality:** the system prompt / KB header carries Covie's voice guide so every answer feels like one voice, not a database of unrelated snippets.
 
 ---
 
@@ -447,7 +447,7 @@ Each refusal also surfaces a quick-action: a button "Find me an advisor →" (li
 | 1. Wizard salary capture | **Combined household, with "edit split" link for couples** |
 | 2. Downsize scenario % proceeds | **30% of current home value, with "edit" override on the button** |
 | 3. Readiness Score weights | **Scrapped composite score** — replaced with neutral Goal Progress bars against user-set goals. When a bar is below 100%, app shows a **lever nudge** listing which inputs in this app tend to move that bar (general education + how-to-use-the-app, paired with disclaimer + advisor referral). |
-| 4. AI Assistant future | **Renamed to "Ana — your AI finance guide"** with a defined personality (warm AU finance educator, dry humour, no first-gen-chatbot vibes). Regex refuser on prescriptive questions, with **5 escalating tiers of refusal lines** so persistent advice-seekers get a variety of responses (each tier funnier than the last). 500-word input limit. Permitted to answer general concepts + how-to-use-this-app. Every educational answer carries the educational-only disclaimer. |
+| 4. AI Assistant future | **Renamed to "Covie — your AI finance guide"** with a defined personality (warm AU finance educator, dry humour, no first-gen-chatbot vibes). Regex refuser on prescriptive questions, with **5 escalating tiers of refusal lines** so persistent advice-seekers get a variety of responses (each tier funnier than the last). 500-word input limit. Permitted to answer general concepts + how-to-use-this-app. Every educational answer carries the educational-only disclaimer. |
 | 5. Pro mode + wizard | **Pro mode skips wizard entirely** |
 | 6. Wizard goals | **Open-ended multi-goal loop** — "What are you wanting to plan for?" with quick-pick chips (Retirement, Buy a house, Sabbatical, etc.) + "Add another" / "That'll do for now" exit. Goals are an array of typed objects, one progress bar per goal. |
 | 7. Wizard asset capture | **Adds an Other Investments step** (Property, Shares/ETFs, Cash, Other) with current value per row. **Returns are NOT asked in the wizard** — each asset uses the asset-type default. Super defaults to 60% Growth allocation + 1% fees. |
