@@ -17,6 +17,21 @@
          normally win the cascade — `!important` is required to override them.
          The attribute selector matches React's serialized `grid-template-columns`.
       */
+      /* ── Apple theme typography ──────────────────────────────────────────
+         The app hardcodes 'DM Sans' / 'JetBrains Mono' inline across hundreds of
+         elements. When the Apple theme is active, App.jsx adds `theme-apple` to
+         <body>; this rule swaps the whole app to the SF Pro system stack.
+         `!important` is required because inline styles otherwise win the cascade.
+         tabular-nums keeps financial figures column-aligned. Scoped to the body
+         class so Default / Covenant Wealth themes are completely unaffected. */
+      body.theme-apple, body.theme-apple * {
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", "Segoe UI", Roboto, Arial, sans-serif !important;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -0.01em;
+      }
+
       @media (max-width: 640px) {
         [style*="grid-template-columns"] {
           grid-template-columns: 1fr !important;
@@ -29,7 +44,7 @@
         }
       }
     </style>
-    <script type="module" crossorigin src="/covenant-planner/assets/index-BPtAmXjy.js"></script>
+    <script type="module" crossorigin src="/covenant-planner/assets/index-G9saH7O1.js"></script>
   </head>
   <body>
     <div id="root"></div>
