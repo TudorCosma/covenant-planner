@@ -3,20 +3,92 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Covenant Wealth Australian Financial Planner" />
-    <title>Covenant Wealth | Financial Planner</title>
+    <title>Australian Retirement Planner &amp; Super Calculator | Covenant Wealth</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- Primary meta -->
+    <meta name="description" content="Free Australian retirement and financial planning tool. Model your superannuation, tax, Centrelink age pension, cashflow, and Monte Carlo stress tests in one place. Built by Covenant Wealth — CFP-grade, educational use only." />
+    <meta name="keywords" content="Australian retirement planner, superannuation calculator, age pension calculator, Centrelink assets test, salary sacrifice, financial planning Australia, SMSF, super drawdown, retirement income, tax calculator Australia" />
+    <meta name="author" content="Covenant Wealth" />
+    <link rel="canonical" href="https://tudorcosma.github.io/covenant-planner/" />
+
+    <!-- Favicon -->
+    <link rel="icon" href="/covenant-planner/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/covenant-planner/og-image.png" />
+
+    <!-- Open Graph (Facebook, LinkedIn, AI crawlers) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Covenant Wealth" />
+    <meta property="og:url" content="https://tudorcosma.github.io/covenant-planner/" />
+    <meta property="og:title" content="Australian Retirement Planner &amp; Super Calculator | Covenant Wealth" />
+    <meta property="og:description" content="Model your retirement, superannuation, tax, Centrelink age pension, and cashflow in one free tool. CFP-grade projections for Australian households — educational use only." />
+    <meta property="og:image" content="https://tudorcosma.github.io/covenant-planner/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content="en_AU" />
+
+    <!-- Twitter / X Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Australian Retirement Planner &amp; Super Calculator | Covenant Wealth" />
+    <meta name="twitter:description" content="Free Australian retirement planner: super, tax, Centrelink age pension, cashflow, and Monte Carlo stress testing. Educational tool — not financial advice." />
+    <meta name="twitter:image" content="https://tudorcosma.github.io/covenant-planner/og-image.png" />
+
+    <!-- Structured data: WebApplication -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Covenant Wealth Australian Financial Planner",
+      "url": "https://tudorcosma.github.io/covenant-planner/",
+      "description": "An Australian retirement and financial planning tool covering superannuation (accumulation and pension phase), income tax, Medicare levy, Centrelink age pension (assets and income tests), cashflow projections, salary sacrifice, and Monte Carlo stress testing. Built by Tudor Cosma CFP at Covenant Wealth for educational use.",
+      "applicationCategory": "FinanceApplication",
+      "operatingSystem": "Any",
+      "browserRequirements": "Requires JavaScript",
+      "inLanguage": "en-AU",
+      "isAccessibleForFree": true,
+      "areaServed": {
+        "@type": "Country",
+        "name": "Australia"
+      },
+      "creator": {
+        "@type": "Person",
+        "name": "Tudor Cosma",
+        "jobTitle": "Certified Financial Planner",
+        "worksFor": {
+          "@type": "Organization",
+          "name": "Covenant Wealth",
+          "url": "https://www.covenantwealth.com.au/"
+        }
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "Covenant Wealth",
+        "url": "https://www.covenantwealth.com.au/"
+      },
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "AUD"
+      },
+      "featureList": [
+        "Superannuation accumulation and pension-phase projections",
+        "Australian income tax and Medicare levy calculator",
+        "Centrelink age pension assets test and income test",
+        "Salary sacrifice and concessional contribution modelling",
+        "Monte Carlo retirement stress testing",
+        "Cashflow year-by-year projections in today's dollars",
+        "Downsizer contribution and home sale modelling",
+        "Retirement goal progress tracking",
+        "Now vs After Advice scenario comparison"
+      ]
+    }
+    </script>
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       html, body, #root { width: 100%; min-height: 100vh; margin: 0; padding: 0; }
 
-      /* ── Mobile alignment fix ────────────────────────────────────────────
-         Tabs use inline `gridTemplateColumns: "1fr 1fr"` / "1fr 1fr 1fr" all over the
-         place (111+ instances). On iPhones (≤640px) those grids overflow and
-         label/box/checkbox alignment breaks. Force every inline-styled grid to a
-         single column on small viewports so cards stack cleanly. Inline styles
-         normally win the cascade — `!important` is required to override them.
-         The attribute selector matches React's serialized `grid-template-columns`.
-      */
       /* ── Apple theme typography ──────────────────────────────────────────
          The app hardcodes 'DM Sans' / 'JetBrains Mono' inline across hundreds of
          elements. When the Apple theme is active, App.jsx adds `theme-apple` to
@@ -43,10 +115,257 @@
           font-size: 16px !important;
         }
       }
+
+      /* ── Static discovery section styles ───────────────────────────────
+         Used when planner-discovery is visible (no-JS crawlers, noscript).
+         The section is hidden synchronously by the inline script below for
+         all JS-enabled browsers and bots. */
+      #planner-discovery {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        max-width: 860px;
+        margin: 40px auto;
+        padding: 0 24px 60px;
+        color: #1a1f2e;
+        line-height: 1.65;
+      }
+      #planner-discovery h1 { font-size: 28px; font-weight: 700; margin-bottom: 10px; }
+      #planner-discovery h2 { font-size: 18px; font-weight: 600; margin: 30px 0 8px; }
+      #planner-discovery p  { margin-bottom: 10px; color: #3a4055; }
+      #planner-discovery ul { padding-left: 20px; margin-bottom: 12px; }
+      #planner-discovery li { margin-bottom: 5px; color: #3a4055; }
+      #planner-discovery a  { color: #3b6ef5; }
+      #planner-discovery nav ul { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+      #planner-discovery nav li { margin: 0; }
+      #planner-discovery nav a { display: inline-block; padding: 4px 10px; border: 1px solid #c0c8e0; border-radius: 4px; text-decoration: none; font-size: 13px; }
+      #planner-discovery .disclaimer { font-size: 12px; color: #6b7280; font-style: italic; margin-top: 32px; padding-top: 16px; border-top: 1px solid #e5e7eb; }
     </style>
-    <script type="module" crossorigin src="/covenant-planner/assets/index-G9saH7O1.js"></script>
+    <script type="module" crossorigin src="/covenant-planner/assets/index-6UNkinCj.js"></script>
   </head>
   <body>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         STATIC DISCOVERY SECTION
+         Visible only to non-JS crawlers (GPTBot, ClaudeBot, PerplexityBot,
+         social preview scrapers). Hidden synchronously for all JS-enabled
+         browsers by the inline script immediately following this block —
+         so users never see it. Each section links to its hash URL so
+         Googlebot can follow the links and index the SPA sections.
+         ═══════════════════════════════════════════════════════════════════ -->
+    <section id="planner-discovery" aria-hidden="true">
+      <h1>Covenant Wealth — Australian Financial Planner</h1>
+      <p>
+        A free, CFP-grade Australian retirement and financial planning tool built by
+        Tudor Cosma, Certified Financial Planner (CFP) at Covenant Wealth, with 19 years
+        of advisory experience. Use it to model superannuation, tax, Centrelink age pension,
+        cashflow, and retirement stress tests all in one place.
+      </p>
+      <p><em>Educational tool only — not personal financial advice.</em></p>
+
+      <nav aria-label="Planner sections">
+        <ul>
+          <li><a href="#dashboard">Dashboard</a></li>
+          <li><a href="#goals">Goals</a></li>
+          <li><a href="#personal">Personal</a></li>
+          <li><a href="#income">Income</a></li>
+          <li><a href="#assets">Assets</a></li>
+          <li><a href="#expenses">Expenses</a></li>
+          <li><a href="#liabilities">Liabilities</a></li>
+          <li><a href="#projections">Projections</a></li>
+          <li><a href="#cashflow">Cashflow Ledger</a></li>
+          <li><a href="#monte_carlo">Stress Testing</a></li>
+          <li><a href="#aged_care">Aged Care</a></li>
+          <li><a href="#tax_rates">Legislation</a></li>
+          <li><a href="#returns">Returns &amp; Portfolios</a></li>
+          <li><a href="#settings">Settings</a></li>
+        </ul>
+      </nav>
+
+      <section id="dashboard">
+        <h2><a href="#dashboard">Dashboard</a></h2>
+        <p>
+          An at-a-glance summary of your financial position: net wealth, annual cashflow
+          surplus or deficit, total tax, and Centrelink age pension entitlement. Shows
+          goal progress bars for retirement, debt elimination, and custom savings goals,
+          plus scenario buttons that instantly model what-if moves — retire two years
+          earlier, add $200/week to super, downsize at 70, or cut expenses by 10%.
+          Compares your current situation ("Now") against an advice scenario ("After Advice")
+          to quantify the dollar value of financial planning decisions.
+        </p>
+      </section>
+
+      <section id="goals">
+        <h2><a href="#goals">Goals</a></h2>
+        <p>
+          Define and track multiple financial goals: retirement readiness, paying off debt,
+          buying a home, a career sabbatical, children's education, travel, or a custom
+          savings target. Each goal shows a progress bar driven by live projection data,
+          and expands to suggest the specific inputs (salary sacrifice, retirement age,
+          expense level) that would move the needle most.
+        </p>
+      </section>
+
+      <section id="personal">
+        <h2><a href="#personal">Personal</a></h2>
+        <p>
+          Core demographic inputs: single or couple, ages, planned retirement age, life
+          expectancy, homeowner status, and macroeconomic assumptions (inflation rate,
+          cash rate). These drive every downstream projection. Supports planning for
+          couples with independent ages and different retirement dates.
+        </p>
+      </section>
+
+      <section id="income">
+        <h2><a href="#income">Income</a></h2>
+        <p>
+          Enter salary, salary sacrifice (concessional super contributions), dividends,
+          rental income, and other income sources per person. Models employer SG
+          contributions (11.5% FY 2025–26), voluntary concessional contributions up to
+          the $30,000 annual cap, and the carry-forward rule for unused prior-year cap space.
+        </p>
+      </section>
+
+      <section id="assets">
+        <h2><a href="#assets">Assets</a></h2>
+        <p>
+          Manage superannuation balances (accumulation and account-based pension phase),
+          non-super investments, lifestyle assets, and the family home. Includes downsizer
+          contribution modelling for homeowners aged 55 and over. Tracks investment
+          allocation across return profiles (Conservative, Balanced, Growth, High Growth,
+          or custom asset-class splits).
+        </p>
+      </section>
+
+      <section id="expenses">
+        <h2><a href="#expenses">Expenses</a></h2>
+        <p>
+          Model lifestyle spending across three retirement phases: go-go (active early
+          retirement), slow-go (reduced activity), and no-go (later life). Supports
+          one-off future expenses such as renovations, travel, or gifting to children,
+          each placed in a specific future year. Expenses are in today's dollars and
+          automatically inflated in the projection engine.
+        </p>
+      </section>
+
+      <section id="liabilities">
+        <h2><a href="#liabilities">Liabilities</a></h2>
+        <p>
+          Enter mortgages, personal loans, and other debts with balance, interest rate,
+          and repayment amount. The engine models full amortisation year by year and shows
+          the projected payoff date. Multiple debts are supported with individual payoff
+          tracking in the cashflow waterfall.
+        </p>
+      </section>
+
+      <section id="projections">
+        <h2><a href="#projections">Projections</a></h2>
+        <p>
+          Year-by-year projection table and charts from today to life expectancy. Shows
+          super balance, non-super investments, net assets, total tax, Centrelink age
+          pension, and annual cashflow in today's dollars (real terms, deflated by
+          inflation). Supports the Now vs After Advice scenario overlay so you can see
+          the long-run impact of planning decisions.
+        </p>
+      </section>
+
+      <section id="cashflow">
+        <h2><a href="#cashflow">Cashflow Ledger</a></h2>
+        <p>
+          A detailed year-by-year breakdown of every income and expense line item:
+          employment income, super drawdowns, Centrelink age pension, investment income,
+          loan repayments, living expenses, tax, and the net surplus or deficit. Helps
+          identify the years where spending exceeds income and shows how the cashflow
+          waterfall draws on cash buffer, investments, and super.
+        </p>
+      </section>
+
+      <section id="monte_carlo">
+        <h2><a href="#monte_carlo">Stress Testing (Monte Carlo)</a></h2>
+        <p>
+          Runs hundreds of simulated retirement scenarios with randomised annual returns
+          drawn from a normal distribution to estimate the probability of not exhausting
+          assets before life expectancy. Shows median, 10th percentile, and 90th
+          percentile outcomes to quantify downside retirement risk and sequence-of-returns
+          risk.
+        </p>
+      </section>
+
+      <section id="aged_care">
+        <h2><a href="#aged_care">Aged Care</a></h2>
+        <p>
+          Basic modelling of residential aged care costs including the means-tested care
+          fee (MTCF) and daily accommodation payment (DAP or refundable accommodation
+          deposit equivalent). Helps households understand the potential aged care liability
+          and its impact on estate planning.
+        </p>
+      </section>
+
+      <section id="tax_rates">
+        <h2><a href="#tax_rates">Legislation (Tax &amp; Super Rules)</a></h2>
+        <p>
+          Displays and allows editing of the ATO tax brackets, Medicare levy thresholds
+          (including Medicare levy surcharge), superannuation parameters (concessional cap,
+          non-concessional cap, contribution tax, preservation age), and Centrelink rules
+          (assets test thresholds, taper rates, deeming rates, gifting limits). Updated
+          to FY 2025–26 by default; future-year rule sets can be selected from the header.
+        </p>
+      </section>
+
+      <section id="returns">
+        <h2><a href="#returns">Returns &amp; Portfolios</a></h2>
+        <p>
+          Edit expected return assumptions for each asset class (Australian shares,
+          international shares, property, bonds, cash) and create or customise return
+          profiles. Default profiles include Conservative (30% growth), Balanced (60%),
+          Growth (80%), and High Growth (100%). Fees are modelled as a drag on gross returns.
+        </p>
+      </section>
+
+      <section id="settings">
+        <h2><a href="#settings">Settings</a></h2>
+        <p>
+          Configure the cashflow waterfall priority (cash buffer target, debt repayment
+          rules), choose a visual theme (Covenant Wealth, Default, Apple, Dark), and
+          export or import your plan as a JSON file for backup and sharing.
+        </p>
+      </section>
+
+      <section>
+        <h2>Key Australian planning concepts covered</h2>
+        <ul>
+          <li>Superannuation preservation age (60) and condition of release</li>
+          <li>Account-based pension (ABP) minimum drawdown rates by age band (SIS Reg 1.06(9A))</li>
+          <li>Transition-to-retirement (TTR) income streams</li>
+          <li>Concessional contributions cap ($30,000 FY 2025–26) and carry-forward unused cap</li>
+          <li>Non-concessional contributions cap ($120,000) and the bring-forward rule</li>
+          <li>Centrelink assets test thresholds and $3 taper rate per $1,000 above threshold</li>
+          <li>Centrelink income test deeming rates on financial assets (0.25% / 2.25% FY 2025–26)</li>
+          <li>Gifting rules: $10,000 per financial year, $30,000 cap over five financial years</li>
+          <li>Downsizer contribution for homeowners aged 55+ (up to $300,000 per person)</li>
+          <li>Medicare levy (2%) and Medicare levy surcharge thresholds</li>
+          <li>Franking credits on Australian share dividends</li>
+          <li>All projections in today's dollars (real terms) — no nominal/real toggle confusion</li>
+        </ul>
+      </section>
+
+      <p class="disclaimer">
+        Educational tool only — not personal financial advice. Projections are estimates
+        based on the inputs and assumptions provided; they are not guarantees. Always
+        consult a licensed Australian financial adviser before making financial decisions.
+        Covenant Wealth is an authorised representative of a licensed Australian Financial
+        Services provider.
+      </p>
+    </section>
+
+    <!-- Hide the discovery section synchronously before first paint.
+         Non-JS crawlers never execute this, so they see the full section above.
+         JS-enabled browsers (including Googlebot's rendering pass) hide it
+         immediately, so the React app below is the only visible content. -->
+    <script>document.getElementById('planner-discovery').hidden=true;</script>
+
     <div id="root"></div>
+
+    <noscript>
+      <style>#planner-discovery { display: block !important; }</style>
+    </noscript>
   </body>
 </html>

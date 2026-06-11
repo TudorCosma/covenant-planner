@@ -9,9 +9,10 @@ import { saveState as persistSave, loadState as persistLoad, clearState as persi
 import {
   DashboardTab, PersonalTab, IncomeTab, AssetsTab, ExpensesTab,
   LiabilitiesTab, ProjectionsTab, MonteCarloTab, TaxTab, ReturnsTab, SettingsTab,
-  AgedCareTab, CashflowLedgerTab,
+  AgedCareTab, CashflowLedgerTab, GoalsTab,
 } from "./tabs";
 import { FinancialAssistant, FYSelect } from "./components";
+import { Wizard } from "./wizard/Wizard";
 
 // Hydrate from localStorage synchronously on first render so the user sees their
 // last plan immediately — no flash of DEFAULT_STATE then snap-to-saved.
@@ -28,6 +29,16 @@ export default function App() {
   const [theme, setThemeState] = useState(SAVED?.theme || "Covenant Wealth");
   const [saveStatus, setSaveStatus] = useState(SAVED ? "restored" : "idle"); // idle | saving | saved | restored | error
   const fileInputRef = useRef(null);
+
+  // First-run wizard — show whenever the active plan has no `wizardCompleted` flag
+  // (covers truly fresh installs AND legacy saved plans that pre-date V2). Skipped
+  // when proMode is on. Re-launchable later by resetting from the header.
+  const [showWizard, setShowWizard] = useState(() => {
+    const savedState = SAVED?.state;
+    const completed = savedState?.wizardCompleted ?? false;
+    const proMode = savedState?.proMode ?? DEFAULT_STATE.proMode;
+    return !completed && !proMode;
+  });
 
   // FY changer — replaces state.legislation with the registry snapshot for the chosen year.
   // Mirrors the same change into afterState so both scenarios stay on the same rule set.
@@ -49,6 +60,25 @@ export default function App() {
   };
 
   useEffect(() => { Object.assign(COLORS, THEMES[theme]); }, []);
+
+  // Hash-based routing — read the initial URL hash to land on the right section
+  // (e.g. https://…/covenant-planner/#projections opens the Projections tab directly).
+  // replaceState keeps the URL in sync as the user navigates, giving every section a
+  // real shareable URL without polluting browser history on every click.
+  useEffect(() => {
+    const hash = window.location.hash.slice(1);
+    if (hash && TABS.find(t => t.id === hash)) setTab(hash);
+  }, []);
+  useEffect(() => {
+    window.history.replaceState(null, "", "#" + tab);
+  }, [tab]);
+
+  // Apple theme swaps the global font stack to SF Pro via a body class (inline
+  // 'DM Sans' styles are overridden by the !important rule in index.html). Only
+  // active for the Apple theme — Default and Covenant Wealth are untouched.
+  useEffect(() => {
+    document.body.classList.toggle("theme-apple", theme === "Apple");
+  }, [theme]);
 
   // Wrapped After setter — every tab edit goes through here so we can mark After as user-edited.
   // Once dirty, After stops auto-syncing from Now and represents an independent advice scenario.
@@ -126,20 +156,23 @@ export default function App() {
     }
   };
   const handleReset = () => {
-    if (!confirm("Reset everything to the sample defaults? Your current plan will be wiped from this device. Tip: 'Export plan' first if you want a backup.")) return;
+    if (!confirm("Reset everything and start over? Your current plan will be wiped from this device and the setup wizard will run again. Tip: 'Export plan' first if you want a backup.")) return;
     persistClear();
-    setState(DEFAULT_STATE);
+    setState(structuredClone(DEFAULT_STATE));
     setAfterStateRaw(null);
     setAfterDirty(false);
     setScenario("now");
     setSaveStatus("idle");
+    // Re-launch the wizard so reset → start-over is a single button, not
+    // "reset then refresh the page". DEFAULT_STATE.wizardCompleted is false
+    // but the showWizard React state was set at mount, so set it explicitly.
+    setShowWizard(true);
   };
 
   const isCovenant = theme === "Covenant Wealth";
 
   return (
     <div style={{ background: COLORS.bg, minHeight: "100vh", color: COLORS.text, fontFamily: "'DM Sans', sans-serif" }}>
-      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
       <meta name="viewport" content="width=device-width, initial-scale=1" />
       <style>{`
         input, select, textarea {
@@ -160,15 +193,18 @@ export default function App() {
       `}</style>
 
       {/* Header */}
-      <div style={{ background: COLORS.headerBg || COLORS.card, borderBottom: isCovenant ? `3px solid #cfc090` : `1px solid ${COLORS.border}`, padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <header style={{ background: COLORS.headerBg || COLORS.card, borderBottom: isCovenant ? `3px solid #cfc090` : `1px solid ${COLORS.border}`, padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div className="flex items-center gap-3">
           {isCovenant ? (
-            <img src={COVENANT_LOGO} alt="Covenant Wealth" style={{ height: 36 }} />
+            <>
+              <img src={COVENANT_LOGO} alt="Covenant Wealth" style={{ height: 36 }} />
+              <h1 style={{ position: "absolute", width: 1, height: 1, padding: 0, margin: "-1px", overflow: "hidden", clip: "rect(0,0,0,0)", whiteSpace: "nowrap", border: 0 }}>Covenant Wealth — Australian Financial Planner</h1>
+            </>
           ) : (
             <>
               <div style={{ width: 32, height: 32, borderRadius: 8, background: `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.purple})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 700, color: "#fff" }}>F</div>
               <div>
-                <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: -0.5, color: COLORS.headerText || COLORS.text }}>{COLORS.appTitle || "Australian Financial Planner"}</div>
+                <h1 style={{ fontSize: 15, fontWeight: 700, letterSpacing: -0.5, color: COLORS.headerText || COLORS.text, margin: 0 }}>{COLORS.appTitle || "Australian Financial Planner"}</h1>
                 <div style={{ fontSize: 10, color: COLORS.textDim, letterSpacing: 0.5 }}>{COLORS.appSubtitle || "CASHFLOW · TAX · SUPER · CENTRELINK · MONTE CARLO"}</div>
               </div>
             </>
@@ -193,28 +229,32 @@ export default function App() {
             {state.proMode ? "PRO" : "Consumer"}
           </button>
         </div>
-      </div>
+      </header>
 
       {/* Navigation */}
-      <div style={{ background: COLORS.navBg || COLORS.card, borderBottom: `1px solid ${COLORS.border}`, padding: "0 16px", display: "flex", gap: 0, overflowX: "auto" }}>
+      <nav aria-label="Planner sections" style={{ background: COLORS.navBg || COLORS.card, borderBottom: `1px solid ${COLORS.border}`, padding: "0 16px", display: "flex", gap: 0, overflowX: "auto" }}>
         {TABS.map(t => (
-          <button
+          <a
             key={t.id}
-            onClick={() => setTab(t.id)}
+            href={`#${t.id}`}
+            onClick={(e) => { e.preventDefault(); setTab(t.id); }}
+            aria-current={tab === t.id ? "page" : undefined}
             style={{
-              background: "none", border: "none", borderBottom: tab === t.id ? `2px solid ${COLORS.accent}` : "2px solid transparent",
+              textDecoration: "none", display: "inline-block",
+              borderBottom: tab === t.id ? `2px solid ${COLORS.accent}` : "2px solid transparent",
               color: tab === t.id ? COLORS.accent : COLORS.textDim, padding: "10px 14px", fontSize: 12, cursor: "pointer",
               fontFamily: "'DM Sans', sans-serif", fontWeight: tab === t.id ? 600 : 400, whiteSpace: "nowrap", transition: "all 0.15s",
             }}
           >
             <span style={{ marginRight: 5 }}>{t.icon}</span>{t.label}
-          </button>
+          </a>
         ))}
-      </div>
+      </nav>
 
       {/* Content */}
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "20px 20px 60px" }}>
+      <main style={{ maxWidth: 1100, margin: "0 auto", padding: "20px 20px 60px" }}>
         {tab === "dashboard" && <DashboardTab state={state} projectionData={projectionData} afterProjectionData={afterProjectionData} afterState={afterState} scenario={scenario} setState={setState} setAfterState={setAfterState} setTab={setTab} />}
+        {tab === "goals" && <GoalsTab state={state} setState={setState} />}
         {tab === "personal" && <PersonalTab state={state} setState={setState} />}
         {tab === "income" && <IncomeTab state={activeState} setState={setActiveState} scenario={scenario} onActivateAfter={activateAfter} onActivateNow={activateNow} onResetAfter={resetAfter} afterState={afterState} />}
         {tab === "assets" && <AssetsTab state={activeState} setState={setActiveState} scenario={scenario} onActivateAfter={activateAfter} onActivateNow={activateNow} onResetAfter={resetAfter} afterState={afterState} />}
@@ -227,10 +267,25 @@ export default function App() {
         {tab === "tax_rates" && <TaxTab state={state} setState={setState} />}
         {tab === "returns" && <ReturnsTab state={state} setState={setState} />}
         {tab === "settings" && <SettingsTab theme={theme} setTheme={setTheme} state={state} setState={setState} />}
-      </div>
+      </main>
 
-      {/* AI Financial Literacy Assistant */}
+      {/* AI Financial Literacy Assistant — Covie */}
       <FinancialAssistant tab={tab} />
+
+      {/* First-run wizard — onboards new users into a starter plan + goals */}
+      {showWizard && (
+        <Wizard
+          onComplete={(builtState) => {
+            setState({ ...builtState, wizardCompleted: true });
+            setShowWizard(false);
+            setTab("dashboard");
+          }}
+          onSkip={() => {
+            setState(s => ({ ...s, wizardCompleted: true }));
+            setShowWizard(false);
+          }}
+        />
+      )}
     </div>
   );
 }

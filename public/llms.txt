@@ -1,0 +1,35 @@
+# Covenant Wealth Australian Retirement Planner
+
+## What this is
+
+A free, browser-based educational tool that helps Australians model their retirement finances. Built by Tudor Cosma CFP (19 years experience) at Covenant Wealth.
+
+## Intended audience
+
+- Australians planning for retirement (DIY users and clients of Covenant Wealth)
+- Financial planners seeking a reference model for superannuation, tax, and Centrelink calculations
+
+## What the tool covers
+
+- Superannuation (accumulation and account-based pension drawdown, concessional/non-concessional contributions, contribution tax)
+- Australian income tax (FY 2025-26 brackets, LITO, LMITO, Medicare levy and surcharge)
+- Centrelink age pension (assets test, income test, deeming, gifting rules)
+- Year-by-year retirement cashflow projection in today's dollars (real terms)
+- Stress testing via Monte Carlo simulation
+- Scenario comparison ("Now" vs "After Advice")
+- Goals tracking (retirement, housing, debt payoff, education, sabbatical, travel, big purchases)
+- Liabilities and loan payoff modelling
+- Return profiles and editable legislative parameters
+
+## Disclaimer
+
+This tool is for **educational purposes only** and does not constitute financial advice. Users should consult a licensed financial adviser before making investment, superannuation, or retirement decisions.
+
+## Main public page
+
+https://tudorcosma.github.io/covenant-planner/
+
+## Publisher
+
+Tudor Cosma CFP — Covenant Wealth
+https://www.covenantwealth.com.au/

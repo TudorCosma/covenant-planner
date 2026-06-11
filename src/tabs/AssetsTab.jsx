@@ -3,7 +3,7 @@ import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, Cartesia
 import { COLORS, THEMES } from "../data/themes";
 import { TABS } from "../data/tabs";
 import { ASSET_LABELS, DEFAULT_RETURN_PROFILES, DEFAULT_ASSET_RETURNS, profileDisplayLabel } from "../data/returnProfiles";
-import { Input, DateInput, FYInput, Select, Card, StatCard, Btn, Modal, HeaderBtn, ScenarioToggle, ReturnSummary, FinancialAssistant } from "../components";
+import { Input, DateInput, YearSelect, Select, Card, StatCard, Btn, Modal, HeaderBtn, ScenarioToggle, ReturnSummary, FinancialAssistant } from "../components";
 import { fmt, pct, calcIncomeTax, calcMedicare, boxMullerRandom, calcDeprivedAssets, calcCentrelinkPension, calcDeemedIncome, getMonthlyEquiv, calcLoanPayoff, runProjection } from "../lib";
 export function AssetsTab({ state, setState, scenario, onActivateAfter, onActivateNow, onResetAfter, afterState }) {
   const { assets, personal } = state;
@@ -93,7 +93,7 @@ export function AssetsTab({ state, setState, scenario, onActivateAfter, onActiva
                 From preservation age 60 you can convert to an Account-Based Pension. Earnings become tax-free and the account enters pension phase for Centrelink assessment.
               </p>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, alignItems: "end" }}>
-                <FYInput label="Pension Start FY" value={convYear} onChange={(v) => updSuper(sKey, "pensionConversionYear", v || null)} />
+                <YearSelect label="Pension Start FY" value={convYear} onChange={(v) => updSuper(sKey, "pensionConversionYear", v || null)} personal={personal} small />
                 <Select label="Conversion Type" value={acc.pensionConversionType || "full"}
                   onChange={(v) => updSuper(sKey, "pensionConversionType", v)}
                   options={[{ value: "full", label: "Full balance" }, { value: "partial", label: "Partial (keep some in accum)" }]} />
@@ -314,7 +314,7 @@ export function AssetsTab({ state, setState, scenario, onActivateAfter, onActiva
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 , alignItems: "end" }}>
-                  <FYInput label="Downsize FY" value={a.downsizeYear || ""} onChange={(v) => updLifestyle(realIdx, "downsizeYear", v)} />
+                  <YearSelect label="Downsize FY" value={a.downsizeYear || ""} onChange={(v) => updLifestyle(realIdx, "downsizeYear", v)} personal={personal} small />
                   <Input label="Net Proceeds" value={a.downsizeProceeds || ""} onChange={(v) => updLifestyle(realIdx, "downsizeProceeds", v)} prefix="$" />
                 </div>
                 <Select label="Allocate Proceeds To" value={a.downsizeAllocateTo || "joint"}
@@ -328,7 +328,7 @@ export function AssetsTab({ state, setState, scenario, onActivateAfter, onActiva
               </div>
               {(a.downsizeYear || 0) > 0 && (a.downsizeProceeds || 0) > 0 && (
                 <div style={{ marginTop: 10, padding: "8px 10px", background: `${COLORS.green}20`, border: `1px solid ${COLORS.green}40`, borderRadius: 6 }}>
-                  <span style={{ fontSize: 11, color: COLORS.green, fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}>
+                  <span style={{ fontSize: 12, color: COLORS.text, fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}>
                     ✓ In {a.downsizeYear}, {fmt(a.downsizeProceeds)} will flow into {a.downsizeAllocateTo === "joint" ? "Joint Investments" : a.downsizeAllocateTo === "p1NonSuper" ? (personal.person1.name || "Person 1") + " Non-Super" : (personal.person2.name || "Person 2") + " Non-Super"}.
                   </span>
                 </div>
@@ -361,7 +361,7 @@ export function AssetsTab({ state, setState, scenario, onActivateAfter, onActiva
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 , alignItems: "end" }}>
-                  <FYInput label="Sale FY" value={a.saleYear || ""} onChange={(v) => updLifestyle(realIdx, "saleYear", v)} />
+                  <YearSelect label="Sale FY" value={a.saleYear || ""} onChange={(v) => updLifestyle(realIdx, "saleYear", v)} personal={personal} small />
                   <Input label="Sale Proceeds" value={a.saleProceeds || ""} onChange={(v) => updLifestyle(realIdx, "saleProceeds", v)} prefix="$" />
                 </div>
                 <Select label="Allocate Proceeds To" value={a.saleAllocateTo || "joint"}
@@ -375,7 +375,7 @@ export function AssetsTab({ state, setState, scenario, onActivateAfter, onActiva
               </div>
               {(a.saleYear || 0) > 0 && (a.saleProceeds || 0) > 0 && (
                 <div style={{ marginTop: 8, padding: "8px 10px", background: `${COLORS.green}20`, border: `1px solid ${COLORS.green}40`, borderRadius: 6 }}>
-                  <span style={{ fontSize: 11, color: COLORS.green, fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}>
+                  <span style={{ fontSize: 12, color: COLORS.text, fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}>
                     ✓ In {a.saleYear}, {fmt(a.saleProceeds)} will flow into {a.saleAllocateTo === "joint" ? "Joint Investments" : a.saleAllocateTo === "p1NonSuper" ? (personal.person1.name || "Person 1") + " Non-Super" : (personal.person2.name || "Person 2") + " Non-Super"}.
                   </span>
                 </div>
@@ -429,7 +429,7 @@ function LifetimeIncomeStreamsSection({ state, setState, personal }) {
                 ...(personal.isCouple ? [{ value: "p2", label: personal.person2.name || "Person 2" }] : []),
                 { value: "joint", label: "Joint" },
               ]} />
-              <FYInput label="Purchase FY" value={it.purchaseYear} onChange={(v) => upd(i, "purchaseYear", v)} />
+              <YearSelect label="Purchase FY" value={it.purchaseYear} onChange={(v) => upd(i, "purchaseYear", v)} personal={personal} small />
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               <Input label="Purchase Price" value={it.purchasePrice} onChange={(v) => upd(i, "purchasePrice", v)} prefix="$" />
@@ -492,7 +492,7 @@ function InvestmentBondsSection({ state, setState, personal }) {
                   ...(personal.isCouple ? [{ value: "p2", label: personal.person2.name || "Person 2" }] : []),
                   { value: "joint", label: "Joint" },
                 ]} />
-                <FYInput label="Bond Start FY" value={it.startYear} onChange={(v) => upd(i, "startYear", v)} />
+                <YearSelect label="Bond Start FY" value={it.startYear} onChange={(v) => upd(i, "startYear", v)} personal={personal} small />
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
                 <Input label="Balance" value={it.balance} onChange={(v) => upd(i, "balance", v)} prefix="$" />
@@ -538,7 +538,7 @@ function ReverseMortgagesSection({ state, setState, personal }) {
             <Input label="Description" value={it.description} onChange={(v) => upd(i, "description", v)} type="text" />
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               <Input label="Current Balance Owed" value={it.currentBalance} onChange={(v) => upd(i, "currentBalance", v)} prefix="$" />
-              <FYInput label="Start FY" value={it.startYear} onChange={(v) => upd(i, "startYear", v)} />
+              <YearSelect label="Start FY" value={it.startYear} onChange={(v) => upd(i, "startYear", v)} personal={personal} small />
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               <Input label="Lump Sum Drawn at Start" value={it.lumpSumDrawn} onChange={(v) => upd(i, "lumpSumDrawn", v)} prefix="$" />
