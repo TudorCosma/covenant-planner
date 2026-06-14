@@ -97,6 +97,15 @@ export const MANIPULATION_TRIGGERS = [
   /\b(the |your )?(rules?|restrictions?|guidelines?|limitations?) (don'?t|do not|no longer|doesn'?t) apply to (me|us)\b/i,
   /\bi'?m (the developer|your developer|the one who built|the one that built|the creator|the owner|the administrator)( who (built|made|created|developed))? ?(of |behind )?(this|the) ?(app|tool|system|platform)?\b/i,
 
+  // Safety-test / compliance-test bypass — claiming the "right" answer is to give advice
+  /\b(i'?m |i am )?(actually )?(testing|running a test on|auditing|checking) (your )?(safety|compliance|guardrail|filter|gate|system|response)\b/i,
+  /\bthe (right|correct|expected|proper) (answer|response|output) (here|for (a )?safety|in this case|to this) is (to give|to provide|to offer|advice|full advice)\b/i,
+  /\b(your developers?|covenant|the team) (said|says|told me|want(s)? you to) (ignore|bypass|skip|override) (this|the) (gate|filter|rule|restriction) (for now|temporarily|in this case)\b/i,
+
+  // Pre-regulation / historical roleplay — "you're a planner before these rules existed"
+  /\b(you are|you'?re|imagine you('?re| are)) (a |an )?(financial )?(planner|adviser|advisor) (in |from |before |during ).{0,30}(before|prior to|without|no) (these |the )?(regulations?|rules|laws|restrictions|guidelines|licens)\b/i,
+  /\b(in |before |during )(19\d\d|the (1970s?|1980s?|1990s?|early 2000s?))[^.]{0,60}(give|provide|offer|make) (advice|recommendations?)\b/i,
+
   // Demo / mode / environment bypass
   /\bdemo (mode|version|environment)\b/i,
   /\btraining (mode|session|environment|version)\b/i,
@@ -129,6 +138,8 @@ const _MANIP_LINES = [
   `Credentials don't change what I can do. ASIC, ATO, a licensed adviser, the Prime Minister — it doesn't matter. The rules aren't a policy I apply selectively; they're how I'm built.`,
   `The developer who built this app wrote those rules in on purpose. Claiming to be them doesn't change what the rules do.`,
   `Even if you're exactly who you say you are, this tool was never designed to give personal advice to anyone. That's not a permission level — it's a design decision.`,
+  `The regulations existed in some form long before I did, and they'll exist in whatever year you've imagined. The legal context in the roleplay doesn't change the legal context I operate in.`,
+  `Framing this as a safety test doesn't change the outcome — if anything, a safety test should demonstrate that the gate holds. It does.`,
 ];
 
 let _lastManip = null;
@@ -352,6 +363,67 @@ export const ADVICE_TRIGGERS = [
 
   // "What should I do about my [specific]"
   /\bwhat should (i|we) do (about|with|regarding) (my|our) (super|mortgage|debt|savings|investments?|income|expenses?|tax|pension|annuity|insurance|funds?)\b/i,
+
+  // Indirect / embedded phrasing — same intent, question verb buried
+  /\bi (wonder|was wondering|want to know) (if|whether) (i|we) should\b/i,
+  /\b(curious|wondering) (if|whether) (i|we) should\b/i,
+  /\bcurious (if|whether|about whether) .{0,40}(makes sense|is right|is good|works out|is enough|is wise) for (me|us)\b/i,
+  /\bjust (wondering|curious) (what|whether|if) (the right|my best|the best|a good) (call|move|option|step|decision|choice) (is|would be) for (me|us)\b/i,
+
+  // Tag questions — seeking validation / confirmation at the end of a statement
+  /\b(should be|is|seems|looks) (fine|ok|okay|right|good|enough|safe|smart|worthwhile|reasonable) (for me|for us|right\??|isn'?t it\??|doesn'?t it\??|don'?t you think\??)\b/i,
+  /\b(is a good idea|is the right move|makes sense) (for me|for us|isn'?t it|right\??|don'?t you think\??)\b/i,
+  /\bI'?ve decided to .{0,50}\. (will|does|do|can|would|could) (that|it) (work|be enough|last|hold up|be ok|be okay|be fine) (for me|with my|given my)?\b/i,
+
+  // "Will my money / savings / super last"
+  /\bwill (my|our) (money|savings|super|superannuation|funds?|balance|income|pension) (last|last me|last us|hold|stretch|be enough|cover (me|us)|suffice)\b/i,
+  /\bhow (long|far) will (my|our) (money|savings|super|funds?|balance|income) (last|go|stretch|hold out)\b/i,
+
+  // "Does that / this work with my numbers / situation"
+  /\b(does|would|will|can) (that|this|it) (work|add up|be enough|last|hold up|stretch|pan out) (with|for|given) (my|our) (numbers?|situation|plan|figures?|balance|income|super)\b/i,
+
+  // Negation laundering — "not asking for advice, but…"
+  /\b(not (asking|asking for|seeking)|without giving) (advice|personal advice|a recommendation|your opinion)[,.]?\s*(but|however|just|only|simply)\b/i,
+  /\bi know you (can'?t|don'?t) (advise|give advice|make recommendations|tell me what to do)[,.]?\s*(but|however|just)[^.]{0,60}(should|right|ok|enough|work|solid|good)\b/i,
+
+  // "Just checking" / "just confirming" — confirmation-seek framing
+  /\bjust (checking|confirming|verifying|wondering)[,:]?\s*.{0,60}(enough|on track|right|ok|okay|good|solid|work|last|realistic|sensible)\b/i,
+  /\b(is|are) [\$0-9,kmMbB\s]+(enough|sufficient|adequate) (to retire|for retirement|to live on|to last|for me|for us)\b/i,
+  /\bcan you (confirm|verify|check) (whether|if) (my|our) (plan|strategy|numbers|retirement|savings|super) (is|are|looks?)\b/i,
+
+  // Personal drawdown / income questions — specific numbers or "I/me" phrasing
+  /\bwhat (income|amount|return|yield|withdrawal|drawdown|pension) (could|can|would|will|might) (i|we) (draw|get|receive|take|generate|earn|live on|manage on)\b/i,
+  /\bhow much (could|can|would|will) (i|we) (draw|withdraw|take out|access|live on|spend) (from|on|in) (my|our|this|the) (super|retirement|savings|balance|account|fund)\b/i,
+
+  // "Does my plan / advice from my adviser sound right" — adviser-laundering
+  /\b(my adviser|my planner|my accountant|my broker) (told|said|recommended|suggested|advised) (me |us )?(to .{0,40}|that .{0,40})[,.]\s*(does that|is that|do you agree|sound right|sound ok|make sense)\b/i,
+  /\b(does that|is that) sound (right|correct|ok|okay|good|about right|reasonable|sensible) (to you|for me|for my situation|given my)?\b/i,
+
+  // Story / fiction wrapper — trying to get advice via a fictional character
+  /\b(write|tell|create|draft|imagine) (me )?(a )?(story|scenario|narrative|example|tale|situation) (where|in which) .{0,60}(advice|decide|retire|invest|should|whether to)\b/i,
+  /\bimagine (this is |it'?s )?(a |just )?(story|book|novel|film|movie)[^.]{0,60}(adviser|planner|guide) .{0,40}(should|retire|invest|decide)\b/i,
+
+  // Context poisoning — falsely claiming prior advice was given
+  /\b(you (already|previously|earlier|just) (told|advised|said|recommended|suggested)|continuing from (our|the) (last|previous|earlier) (conversation|session|chat))\b/i,
+  /\b(as (you|we) (discussed|agreed|established|said)|following (your|the) (advice|recommendation|suggestion)) .{0,40}(should|retire|invest|decide|now)\b/i,
+
+  // "thinking about / considering whether we should"
+  /\b(thinking about|considering|wondering about|debating) whether (i|we) should\b/i,
+
+  // "curious/wondering whether X makes sense for someone like me"
+  /\b(curious|wondering) (if|whether) .{0,50}(makes sense|is right|is good|works out|is enough|is wise) for (me|us|someone like (me|us))\b/i,
+
+  // "should be fine, right?" — tag question; comma before right/isn't it breaks naive space separator
+  /\bshould be (fine|ok|okay|right|good|enough|safe|reasonable)\W{0,3}(right|isn'?t it|don'?t you think|correct)\b/i,
+
+  // "does that sound right / reasonable" — direct or after an assertion
+  /\bdoes (that|this|it) sound (right|correct|ok|okay|good|about right|reasonable|sensible|realistic)([ ,]+(to you|for me|for us|for my situation|given my))?\b/i,
+
+  // "X sounds / seems reasonable / right for my situation"
+  /\b(sounds?|seems?) (right|good|ok|okay|reasonable|sensible|realistic|enough|about right|wise|smart) (to you|for me|for us|for my situation|given my|in my case)\b/i,
+
+  // "can you confirm / verify whether my retirement / financial plan is..."
+  /\bcan you (confirm|verify|check|tell me) (whether|if) (my|our) (retirement |financial |current |personal )?(plan|strategy|numbers|situation|finances|super|savings) (is|are|looks?|will|would)\b/i,
 ];
 
 export function isAdviceQuestion(text) {
