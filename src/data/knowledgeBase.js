@@ -750,6 +750,254 @@ You can split up to **85% of your own concessional contributions** made in a fin
 • **Death risk:** If the higher-balance partner dies early, super held in pension phase is included in the surviving partner's transfer balance. Having more equally balanced accounts reduces this risk.
 
 The tool lets you model contributions to each partner's super separately in the Income tab.` },
+
+  // ─── GOVERNMENT CO-CONTRIBUTION ──────────────────────────────────────────
+  { keys: ["government co-contribution","co contribution","co-contribution","low income super boost","government adds to super","low earner super","500 super bonus","super bonus government","matching contribution government"],
+    answer: `The Government Co-contribution is a bonus the ATO pays directly into your super when you make after-tax contributions and earn below $60,400 per year (2025-26).
+
+**How it works:**
+• Make a personal (non-concessional) contribution to your super
+• For every $1 you contribute, the government adds up to **50 cents** — maximum government co-contribution of **$500**
+• To get the full $500 you contribute $1,000 and earn below $45,400
+
+**The phase-out:**
+• Full benefit below $45,400 income
+• Phases out to zero at $60,400 income
+• No benefit above $60,400
+
+**Conditions:**
+• Must have lodged your tax return for the year
+• Your total super balance must be below $1.9 million
+• You must be under 71 at end of the financial year
+• At least 10% of your income must come from employment or business (not just investment income)
+
+**The math:** A $1,000 contribution getting a $500 co-contribution is an instant 50% tax-free return before any investment growth — one of the best guaranteed returns available in the system for those who qualify.
+
+The ATO automatically pays the co-contribution after you lodge your tax return — no separate claim required.` },
+
+  // ─── SMSF ────────────────────────────────────────────────────────────────
+  { keys: ["self managed super fund","smsf","diy super","my own super fund","set up super fund","run my own super","self managed fund","what is smsf","control my own super"],
+    answer: `A Self-Managed Super Fund (SMSF) is a superannuation fund you set up and run yourself, rather than using a commercial fund. You are both the trustee and the member — which gives you complete control and complete responsibility.
+
+**What SMSFs can invest in (that industry funds cannot):**
+• Direct shares on the ASX
+• Direct residential and commercial property
+• Unlisted assets, artwork (subject to strict rules)
+• Business real property (can lease to your own business under conditions)
+
+**Who SMSFs suit:**
+• Generally considered worthwhile with at least **$250,000–$300,000** in combined balances — below that, the fixed costs eat too much of the return
+• People who want direct control over investments, particularly direct property
+• Business owners who want to hold business premises in their super
+
+**Costs and obligations:**
+• Annual audit by a registered SMSF auditor (~$300–$800)
+• Annual ATO supervisory levy (~$250)
+• Accounting and tax return preparation (~$2,000–$5,000 per year)
+• Trustees are personally liable for compliance — ATO can wind up an SMSF for non-compliance
+
+**What this tool does not model:** SMSF-specific investment structures (like direct property inside super). The projection engine assumes pooled, professionally managed fund structures.
+
+SMSFs are a legitimate and powerful tool when used appropriately. Whether they're right for your situation is a question for a financial adviser who specialises in them.` },
+
+  // ─── LOST AND CONSOLIDATED SUPER ─────────────────────────────────────────
+  { keys: ["lost super","find my super","consolidate super","multiple super funds","combine super","rollover super","how many super funds","unclaimed super","super funds combined","merge super","lost super fund"],
+    answer: `If you've had multiple jobs, it's likely you have multiple super accounts — and there's a good chance one of them is "lost" (the fund has lost track of you or you've lost track of it).
+
+**Finding your super:**
+• Log in to **myGov** → link your ATO account → select "Superannuation" — all known accounts are listed
+• The ATO holds billions in unclaimed super on behalf of people — it's worth checking
+• Your fund's most recent annual statement will confirm balance and contact details
+
+**Why consolidate:**
+• Each fund typically charges an admin fee — multiple funds means multiple fees eroding your balance
+• Easier to track and make decisions when everything is in one place
+• Some default insurance coverage is linked to fund membership; check whether you need to replace it before closing an old account
+
+**How to consolidate:**
+• Via myGov (ATO-linked) — you can request rollovers directly from the portal
+• Via your new fund directly — most funds have a "rollover in" form online
+• Via a financial adviser — particularly if there is insurance or defined benefit components to consider first
+
+**Warning — check for insurance before rolling over:** If an old super account has default life or TPD insurance that you want to keep, rolling it over will cancel that cover. Consider this before consolidating.
+
+This tool models each super account separately. If you consolidate accounts in real life, update the balances in the Assets tab to reflect the merged position.` },
+
+  // ─── PERSONAL DEDUCTIBLE CONTRIBUTIONS ───────────────────────────────────
+  { keys: ["personal deductible contribution","personal contribution deduction","claim deduction super","notice of intent","section 290 notice","personal super deduction","after-tax deductible","self-employed super","claim super tax deduction","deductible personal contribution"],
+    answer: `If you make a personal (after-tax) contribution to super, you can claim a tax deduction on it — making it act like a salary sacrifice contribution, even if you're self-employed or your employer doesn't offer salary sacrifice.
+
+**How it works:**
+1. Make a personal contribution to your super fund from your bank account
+2. Lodge a **Notice of Intent to Claim a Deduction** (s290-170 notice) with your fund before you lodge your tax return
+3. Your fund deducts 15% contributions tax from the claimed amount
+4. You claim the deduction on your tax return at your marginal rate
+
+**Example:** Contribute $20,000. Notify your fund. Fund deducts 15% ($3,000) — net super credit is $17,000. You claim $20,000 as a deduction on your tax return, saving tax at your marginal rate (say 32.5% = $6,500 saved). Net cost to you: $13,500 for $17,000 in super — a significant gain.
+
+**Limits:** The deduction counts as a concessional contribution, so it's capped at $30,000 (including your employer's SG). Use carry-forward amounts to go above $30,000 if eligible.
+
+**Timing rules:**
+• The s290 notice must be lodged **before** you lodge your tax return for that year
+• The notice must be lodged **before** you start a pension with those funds or roll them over
+• Once lodged, it cannot be revoked except in limited circumstances
+
+This is a powerful strategy for self-employed people, contractors, or anyone whose employer doesn't offer salary sacrifice.` },
+
+  // ─── TOTAL SUPER BALANCE ─────────────────────────────────────────────────
+  { keys: ["total super balance","tsb","500000 super","super balance limit","how much super affects caps","super balance rules","what is total super balance","super balance threshold","super rules threshold"],
+    answer: `Total Super Balance (TSB) is the combined value of all your superannuation interests across all funds, measured at 30 June each year. It's not just one account — it's everything: accumulation, pension phase, SMSFs, and defined benefit interests.
+
+**Why TSB matters — the thresholds it governs:**
+
+**$500,000 — Carry-forward concessional contributions:**
+• If your TSB is below $500,000 at 30 June of the prior year, you can use unused concessional cap amounts from the past 5 years
+• At or above $500,000: carry-forward contributions are not available
+
+**$1,700,000 — Non-concessional contributions (NCC) bring-forward:**
+• Below $1.7M: access 3-year bring-forward (up to $360,000)
+• $1.7M–$1.78M: access 2-year bring-forward (up to $240,000)
+• $1.78M–$1.9M: one year cap only ($120,000)
+• At or above $1.9M: no non-concessional contributions permitted at all
+
+**$1,900,000 — Transfer Balance Cap:**
+• This is the limit on how much super you can move into tax-free pension phase
+
+**$250,000 — Government co-contribution:** No co-contribution if TSB at or above $1.9M (overlaps with transfer balance cap)
+
+**Practical takeaway:** If your TSB is approaching $500,000 or $1.7M, the contribution rules that apply to you change significantly. Knowing your TSB is important for planning how and when to contribute.` },
+
+  // ─── EXCEEDING CONTRIBUTION CAPS ─────────────────────────────────────────
+  { keys: ["exceed contribution cap","over the cap","excess contributions","too much super","over concessional cap","over non concessional cap","excess concessional","excess non concessional","what happens if i contribute too much","contribution cap breach"],
+    answer: `Going over the super contribution caps doesn't result in the money being rejected — it comes back to you, with tax consequences.
+
+**Excess concessional contributions (over $30,000):**
+• The excess is included in your assessable income and taxed at your marginal rate
+• You receive a 15% tax offset (since the fund already paid 15% contributions tax)
+• Net cost: your marginal rate minus 15% on the excess amount
+• The ATO issues an excess concessional determination after you lodge your tax return
+• You can choose to withdraw up to 85% of the excess from your fund to pay the tax bill
+
+**Excess non-concessional contributions (over the cap):**
+• Much more severe — the ATO gives you a choice:
+  - **Option A:** Withdraw the excess (plus associated earnings) from your fund. The excess itself is tax-free (you already paid tax on it). The associated earnings are taxed at marginal rates.
+  - **Option B:** Leave it in super. The excess is taxed at the top marginal rate (45%) — usually the wrong choice.
+• If you don't respond to the ATO's notice within 60 days, Option B is applied by default.
+
+**Prevention:**
+• Track your concessional contributions during the year — your employer's SG plus any salary sacrifice plus personal deductible contributions must all fit within $30,000
+• Your ATO myGov account shows year-to-date concessional contributions in real time
+
+If you've received an excess contributions notice from the ATO, consider talking to an accountant or financial adviser before electing a treatment option.` },
+
+  // ─── TAXABLE VS TAX-FREE SUPER COMPONENTS ────────────────────────────────
+  { keys: ["taxable component","tax free component","super components","taxable super","tax free super component","pre july 1983 super","what is the taxable part of super","super tax on death","non preserved super"],
+    answer: `Every super account has two components that sit inside it — taxable and tax-free. This split matters primarily for tax on death benefits and for lump sum withdrawals by people under 60.
+
+**Tax-free component** — money that was never subject to income tax on the way in:
+• Personal non-concessional contributions (after-tax money you put in yourself)
+• Pre-July 1983 components (for very long-tenured members)
+
+**Taxable component** — money that received a tax concession on the way in:
+• Employer SG contributions
+• Salary sacrifice contributions
+• Personal deductible contributions
+• Fund earnings taxed at 15%
+• This is sometimes further split into "taxed element" (contributions tax already paid by the fund) and "untaxed element" (rare — mainly old government schemes)
+
+**Why it matters:**
+• **After 60 years old:** Both components are generally tax-free whether taken as a pension or lump sum. The split is largely irrelevant in retirement.
+• **Between preservation age and 60:** Taxable component taxed at 20% + Medicare (with a low-rate cap of $245,000 for 2025-26); tax-free component is still tax-free.
+• **Death benefits to non-dependants:** The taxable (taxed) element attracts 15% + Medicare levy. Tax-free component is still tax-free. This is where the re-contribution strategy becomes relevant.
+
+**This tool does not split balances by component** — the projection engine treats the full balance uniformly. If tax on death benefits or pre-60 withdrawals is a consideration, discuss this with a financial adviser.` },
+
+  // ─── LUMP SUM VS PENSION INCOME STREAM ───────────────────────────────────
+  { keys: ["lump sum super","take super as lump sum","lump sum vs pension","pension or lump sum","take all super at once","cash out super","withdraw super all at once","super payout options","how to take super at retirement"],
+    answer: `When you retire and meet a condition of release, you can take your super as a lump sum, as an ongoing pension income stream, or a combination of both.
+
+**Lump sum:**
+• You withdraw a portion (or all) of your super as cash
+• After age 60: completely tax-free
+• You now hold the money outside super — it's invested in your own name, subject to your marginal tax rate on earnings (interest, dividends, capital gains)
+• No longer protected by super's tax-advantaged environment
+• Centrelink immediately counts it in your assessable assets and income (from financial asset deeming)
+
+**Account-Based Pension (income stream):**
+• Money stays inside super in pension phase, earning at 0% tax on all income and gains
+• You draw a minimum amount each year (4% at age 60-64, increasing with age)
+• Tax-free in your hands if you're over 60
+• Counted in Centrelink's assets and income tests once in pension phase
+• Money that's still in the fund at death can be passed on as a beneficiary pension or lump sum
+
+**Which generally works better:**
+• The 0% tax on earnings inside a pension account is almost always superior to holding the money outside super and paying marginal rates on earnings
+• A pension income stream also provides a clear, sustainable withdrawal rate rather than the discipline risk of managing a lump sum
+• Exception: some people prefer a lump sum to pay off remaining debt (where the after-tax "return" of debt elimination exceeds the tax concession benefit)
+
+There is no right answer for everyone — it depends on your tax rate, Centrelink situation, estate planning needs, and personal preferences.` },
+
+  // ─── FINANCIAL YEAR ──────────────────────────────────────────────────────
+  { keys: ["financial year","what is financial year","when does financial year start","fy25","fy26","fy2025","fy2026","end of financial year","30 june","1 july","tax year australia","eofy"],
+    answer: `Australia's financial year runs from **1 July to 30 June** — not the calendar year.
+
+**Why this matters for financial planning:**
+
+**Super contribution caps** reset on 1 July each year. The $30,000 concessional cap and $120,000 non-concessional cap are per financial year. If you're making extra contributions late in the year to use your cap, they must reach your fund by **30 June**.
+
+**Tax returns** are for the period 1 July to 30 June. Your tax return for FY2025-26 covers income earned between 1 July 2025 and 30 June 2026.
+
+**Centrelink** assesses income and assets at various points — annual gifting limits ($10,000 per financial year) reset on 1 July.
+
+**Capital gains** are realised in the financial year of the contract date of sale, not settlement. If you want a CGT event in a particular year, the contract must be signed in that financial year.
+
+**Super contribution deadlines:**
+• Contributions must be received by the fund by 30 June (allow several business days for processing)
+• Salary sacrifice agreements should be set up before the first pay period they apply to — you can't retrospectively make salary sacrifice arrangements
+
+This tool uses FY2025-26 as its default legislative year. You can switch to other years in the Legislation tab to model planned changes.` },
+
+  // ─── RE-CONTRIBUTION STRATEGY ────────────────────────────────────────────
+  { keys: ["re-contribution strategy","recontribution","re contribution","reduce taxable component","reduce death benefit tax","super tax planning children","adult children super tax","withdraw and recontribute","tax component strategy"],
+    answer: `The re-contribution strategy involves withdrawing a portion of your super and re-contributing it as a non-concessional contribution — turning taxable component into tax-free component.
+
+**Why bother?**
+After age 60, withdrawals from super are tax-free for you. But if your super passes to a non-dependant on your death (typically adult children who are financially independent), the taxable component of your super can attract **15% + Medicare levy** on the taxed element.
+
+By withdrawing from super (tax-free at 60+) and re-contributing the same amount as a non-concessional contribution, you convert taxable → tax-free component. If your estate passes this balance to adult children, the tax on death is reduced significantly.
+
+**Example:**
+• Super: $800,000 (80% taxable component, 20% tax-free)
+• Death benefit tax on $640,000 taxable element to adult children: ~$105,600
+• After re-contribution strategy over several years: flip to 20%/80% → death benefit tax reduced to ~$26,400
+
+**Conditions:**
+• Must be under 75 to make non-concessional contributions (work test may apply 67-74)
+• Non-concessional cap ($120,000/year, or $360,000 bring-forward under 75) limits how much you can re-contribute each year
+• Your total super balance must not exceed $1.9M (otherwise no NCC permitted)
+• Works best when started in your 60s with time for several rounds before death
+
+This strategy is specifically about estate planning — it has no tax benefit for you personally. It's worth discussing with a financial adviser if your estate may pass significant super to adult children.` },
+
+  // ─── TOTAL AND PERMANENT DISABILITY (TPD) ────────────────────────────────
+  { keys: ["what is tpd","total and permanent disability","tpd definition","tpd claim","permanently disabled super","tpd payment","tpd insurance payout","permanently unable to work"],
+    answer: `Total and Permanent Disability (TPD) cover is insurance that pays a lump sum if you become permanently unable to work due to illness or injury.
+
+**Definition matters:** TPD definitions vary across policies. The two common types are:
+• **"Own occupation":** Unable to work in your specific occupation — generally more generous (and more expensive)
+• **"Any occupation":** Unable to work in any occupation for which you are reasonably suited by education, training, or experience — harder to claim, more common in super funds
+
+**Super-linked TPD:**
+• Most Australians have default TPD cover through their employer's super fund
+• The cover amount may be inadequate for your needs (often a flat benefit unrelated to your income)
+• TPD inside super can only be paid as a capped or restricted benefit in some circumstances — the fund's trust deed and SIS regulations govern this
+• Tax on TPD payments from super varies depending on your age and how the payment is structured
+
+**Access to super on TPD:**
+• A TPD determination is a condition of release — you can access your entire super balance (not just the insurance benefit) after a genuine TPD determination
+• The ATO has strict criteria; the trustee must be satisfied you are permanently incapacitated
+
+**After age 65:** You can access super regardless of employment status, making TPD cover largely redundant past 65. Review whether you're paying premiums for cover you no longer need.` },
 ];
 
 
@@ -764,33 +1012,133 @@ export function findAnswer(question) {
   return `Great question! That's a topic I'd encourage you to explore with a financial adviser who can look at your specific numbers.\n\nIf you don't have one, **Tudor Cosma** at Covenant Wealth built this tool and works with Australians Australia-wide via video call — no need to be in Melbourne.\n\n📞 **03 9982 4484**\n🌐 **www.covenantwealth.com.au**\n\nIn the meantime, try asking me about: super phases, salary sacrifice, age pension tests, tax rates, pension conversion, gifting rules, or how the projections work.`;
 }
 
+// ---- Query normalization (used by findEducationalAnswer) -----------------
+// Expands contractions, common Australian finance abbreviations, and synonym
+// phrases before KB lookup so "what's the SS cap?" resolves the same as
+// "what is the salary sacrifice cap?".
+
+const _NORM = [
+  // Contractions
+  [/\bwhat's\b/gi, 'what is'], [/\bit's\b/gi, 'it is'], [/\bi'm\b/gi, 'i am'],
+  [/\bi've\b/gi, 'i have'], [/\bi'll\b/gi, 'i will'], [/\bi'd\b/gi, 'i would'],
+  [/\bdon't\b/gi, 'do not'], [/\bdoesn't\b/gi, 'does not'],
+  [/\bcan't\b/gi, 'cannot'], [/\bwon't\b/gi, 'will not'],
+  [/\bisn't\b/gi, 'is not'], [/\bthat's\b/gi, 'that is'],
+  [/\bthere's\b/gi, 'there is'], [/\bhow's\b/gi, 'how is'],
+  [/\bwhen's\b/gi, 'when is'], [/\bwhere's\b/gi, 'where is'],
+  // Phrase synonyms
+  [/\ballocated pension\b/gi, 'account based pension'],
+  [/\bdiv\s*293\b/gi, 'division 293'],
+  [/\bemployer contributions?\b/gi, 'super guarantee'],
+  [/\bcompulsory super(annuation)?\b/gi, 'super guarantee'],
+  [/\bsalary packaging\b/gi, 'salary sacrifice'],
+  [/\baged pension\b/gi, 'age pension'],
+  [/\bself[- ]managed super(annuation)?\b/gi, 'self managed super fund'],
+  [/\bsuperannuation\b/gi, 'super'],
+  [/\bgovernment pension\b/gi, 'age pension'],
+  [/\bcentrelink pension\b/gi, 'age pension'],
+  [/\bminimum drawdown\b/gi, 'minimum pension drawdown'],
+  [/\bcontributions? tax\b/gi, 'contributions tax super'],
+  [/\bpre[\s-]?tax super\b/gi, 'salary sacrifice'],
+  [/\bbefore[\s-]?tax super\b/gi, 'salary sacrifice'],
+  // Single-letter/abbreviation expansions (word-boundary only to avoid false matches)
+  [/\bss\b/gi, 'salary sacrifice'],
+  [/\bsg\b/gi, 'super guarantee'],
+  [/\babp\b/gi, 'account based pension'],
+  [/\bttr\b/gi, 'transition to retirement'],
+  [/\btbc\b/gi, 'transfer balance cap'],
+  [/\bncc\b/gi, 'non concessional'],
+  [/\bcgt\b/gi, 'capital gains tax'],
+  [/\bfy\b/gi, 'financial year'],
+  [/\blito\b/gi, 'low income tax offset'],
+  [/\bsapto\b/gi, 'senior pensioner tax offset'],
+  [/\bmls\b/gi, 'medicare levy surcharge'],
+  [/\bbdbn\b/gi, 'binding death benefit nomination'],
+  [/\bsmsf\b/gi, 'self managed super fund'],
+  [/\btsb\b/gi, 'total super balance'],
+  [/\bfhss\b/gi, 'first home super saver'],
+  [/\btpd\b/gi, 'total permanent disability'],
+  [/\bpbp\b/gi, 'pension bonus'],
+];
+
+// Words that carry no topic signal — excluded from topic-word scoring
+const _STOP = new Set([
+  'what','is','are','how','does','do','the','a','an','in','for','of','to',
+  'my','our','i','we','you','this','that','it','its','and','or','but','if',
+  'on','at','by','with','from','up','out','about','into','than','then','so',
+  'not','no','can','will','would','could','should','may','might','must',
+  'shall','get','got','have','has','had','be','been','being','was','were',
+  'am','like','just','more','also','only','over','very','now','here',
+  'when','where','why','who','which','some','all','any','each',
+  'there','them','they','him','her','his','your','use','used',
+  'work','works','going','go','mean','means','know','need','want',
+  'help','put','take','see','tell','say','make','much','one','two',
+  'actually','generally','basically','really','quite','lot','bit','way',
+]);
+
+function _normalize(text) {
+  let s = (text || '').toLowerCase().trim();
+  s = s.replace(/[‘’‚‛]/g, "'"); // curly apostrophes → straight
+  for (const [rx, sub] of _NORM) s = s.replace(rx, sub);
+  return s;
+}
+
+function _topics(text) {
+  return text.split(/\W+/).filter(t => t.length > 2 && !_STOP.has(t));
+}
+
 // Covie-friendly finder — no Tudor push on unknowns.
 // Covie's own isAdviceQuestion runs UPSTREAM (in the component), so we can
 // safely search the KB without a duplicate advice-words gate. If nothing
 // matches, we return a friendly "I don't have a canned answer for that — try
 // rephrasing or one of these topics" — never a sales nudge.
 export function findEducationalAnswer(question) {
-  const q = (question || "").toLowerCase().trim();
-  if (!q) return null;
-  // Direct keyword match
-  const match = KNOWLEDGE_BASE.find(item => item.keys.some(k => q.includes(k)));
-  if (match) return match.answer;
-  // Loose match: score each KB item by how many of its keywords share a token with the question
-  const tokens = q.split(/\W+/).filter(t => t.length > 2);
-  if (tokens.length > 0) {
+  const raw = (question || '').trim();
+  if (!raw) return null;
+  const q = _normalize(raw);
+
+  // 1. Direct substring match on any key — most reliable, try first.
+  const direct = KNOWLEDGE_BASE.find(item => item.keys.some(k => q.includes(k)));
+  if (direct) return direct.answer;
+
+  // 2. Topic-word scoring: compare the question's topic words (stop words removed)
+  //    against each key's topic words. Score = weighted blend of key coverage and
+  //    query coverage — prevents very short keys from dominating and rewards
+  //    entries whose key content is mostly present in the question.
+  const qTopics = _topics(q);
+  if (qTopics.length > 0) {
     let best = null, bestScore = 0;
     for (const item of KNOWLEDGE_BASE) {
+      let itemBest = 0;
       for (const k of item.keys) {
-        const kt = k.split(/\W+/).filter(t => t.length > 2);
-        const shared = kt.filter(t => tokens.includes(t)).length;
-        if (shared > bestScore) { bestScore = shared; best = item; }
+        const kTopics = _topics(k);
+        if (kTopics.length === 0) continue;
+        const hit = kTopics.filter(t => qTopics.includes(t)).length;
+        const score = (hit / kTopics.length) * 0.65 + (hit / Math.max(1, qTopics.length)) * 0.35;
+        if (score > itemBest) itemBest = score;
       }
+      if (itemBest > bestScore) { bestScore = itemBest; best = item; }
     }
-    if (best && bestScore >= 2) return best.answer;
-    if (best && bestScore === 1 && tokens.length <= 4) return best.answer;
+    if (best && bestScore >= 0.45) return best.answer;
+    // Lower bar for short questions (1–3 topic words) — a single matching concept
+    // word is usually enough signal.
+    if (best && bestScore >= 0.28 && qTopics.length <= 3) return best.answer;
   }
-  // Friendly fallback — no sales pitch.
-  return `Honest answer: I don't have a canned explanation for that exact question. Try rephrasing — or ask me about one of these:\n\n• **Super basics** — concessional cap, salary sacrifice, contributions tax, preservation age\n• **Age pension** — assets test, income test, deeming, gifting rules\n• **Tax** — marginal brackets, Medicare levy, franking credits, Div 293\n• **Retirement mechanics** — pension phase, transfer balance cap, drawdown minimums, TTR\n• **How this app works** — Now vs After, what the projection charts mean, how the Value of Advice card is calculated\n\nI'm a teacher, not a search engine — pointing me at a concept works better than a yes/no question.`;
+
+  // 3. Answer-text fallback: check whether the question's topic words appear
+  //    heavily in the full answer body. Weaker signal so threshold is higher.
+  if (qTopics.length >= 2) {
+    let best = null, bestScore = 0;
+    for (const item of KNOWLEDGE_BASE) {
+      const aTopics = new Set(_topics(item.answer.toLowerCase()));
+      const hit = qTopics.filter(t => aTopics.has(t)).length;
+      const score = hit / qTopics.length;
+      if (score > bestScore) { bestScore = score; best = item; }
+    }
+    if (best && bestScore >= 0.6) return best.answer;
+  }
+
+  return `Honest answer: I don't have a canned explanation for that exact phrasing. Try rewording, or ask me about:\n\n• **Super** — contributions, caps, phases, fees, conversion, TTR, transfer balance cap\n• **Age pension** — assets test, income test, deeming, gifting, work bonus\n• **Tax** — brackets, Medicare, franking credits, CGT, Division 293\n• **Contributions** — salary sacrifice, catch-up, downsizer, spouse, co-contribution\n• **How this app works** — Now vs After, scenario buttons, projections, stress test\n\nI'm a teacher, not a search engine — pointing me at a concept works better than a yes/no question.`;
 }
 
 export const QUICK_QUESTIONS = {
