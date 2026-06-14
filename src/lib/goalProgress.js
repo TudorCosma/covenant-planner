@@ -60,7 +60,7 @@ function progressRetirement(goal, projectionData, state) {
     });
   }
   // overall pct = average of sub-bars
-  const pct = sub.length ? sub.reduce((s, x) => s + Math.min(1, x.pct), 0) / sub.length : 0;
+  const pct = sub.length ? sub.reduce((s, x) => s + x.pct, 0) / sub.length : 0;
   return { pct, sub };
 }
 

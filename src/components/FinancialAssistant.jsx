@@ -12,20 +12,26 @@ export function FinancialAssistant({ tab }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
-  const [refusalCount, setRefusalCount] = useState(0);
+  const [refusalCount, setRefusalCount] = useState(() => {
+    try { return parseInt(sessionStorage.getItem("covie_refusals") || "0", 10); }
+    catch { return 0; }
+  });
   const messagesEndRef = useRef(null);
 
-  // Reset messages when tab changes; if open, show a short tab-context intro
+  // When the tab changes and the panel is open, append a brief context note
+  // without wiping the conversation history.
   const prevTabRef = useRef(tab);
   useEffect(() => {
     if (tab !== prevTabRef.current) {
       prevTabRef.current = tab;
-      setMessages([]);
       if (open) {
-        setMessages([{ role: "assistant", content: `You moved to ${TAB_CONTEXTS[tab] || "a new tab"}. ${TAB_INTROS[tab] || ""}\n\nAsk me anything about how this section works.` }]);
+        setMessages(prev => [
+          ...prev,
+          { role: "assistant", content: `_— ${TAB_CONTEXTS[tab] || "new section"} —_\n\n${TAB_INTROS[tab] || ""}\n\nAsk me anything about how this section works.`, kind: "tab-context" },
+        ]);
       }
     }
-  }, [tab]);
+  }, [tab, open]);
 
   // Initial intro when panel opens
   useEffect(() => {
@@ -40,6 +46,10 @@ export function FinancialAssistant({ tab }) {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    try { sessionStorage.setItem("covie_refusals", String(refusalCount)); } catch {}
+  }, [refusalCount]);
 
   const wc = wordCount(input);
   const overLimit = wc > INPUT_MAX_WORDS;
@@ -150,7 +160,7 @@ export function FinancialAssistant({ tab }) {
                 <div style={{
                   maxWidth: "90%", padding: "9px 12px",
                   borderRadius: m.role === "user" ? "12px 12px 2px 12px" : "12px 12px 12px 2px",
-                  background: m.role === "user" ? COLORS.accent : (m.kind === "refusal" ? `${COLORS.accent}15` : COLORS.infoBg || "#ece8e1"),
+                  background: m.role === "user" ? COLORS.accent : (m.kind === "refusal" ? `${COLORS.accent}15` : m.kind === "tab-context" ? `${COLORS.border}60` : COLORS.infoBg || "#ece8e1"),
                   color: m.role === "user" ? "#fff" : COLORS.text,
                   fontSize: 12, fontFamily: "'DM Sans', sans-serif", lineHeight: 1.6,
                   border: m.kind === "refusal" ? `1px dashed ${COLORS.accent}50` : "none",

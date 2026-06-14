@@ -73,7 +73,7 @@ Inflation (default 2.5%) means $80,000 of expenses today costs $133,000 in 20 ye
 
 Each is taxed differently. The tool applies the correct treatment to each, so your after-tax cashflow picture is accurate.` },
 
-  { keys: ["salary sacrifice","what is salary sacrifice","how does salary sacrifice work","pre-tax super"],
+  { keys: ["salary sacrifice","what is salary sacrifice","how does salary sacrifice work","pre-tax super","salary sacrificing","how much salary sacrifice","sacrifice salary into super","before-tax super","pre-tax contributions","reduce tax through super","salary into super","ss into super","sacrifice to super"],
     answer: `Salary sacrifice means directing part of your pre-tax salary into super instead of receiving it as cash. Because it goes in before income tax is applied, you only pay 15% contributions tax instead of your marginal rate (which could be 30%, 37%, or 45%).
 
 **Example:** If you earn $100,000 and salary sacrifice $15,000 into super:
@@ -124,7 +124,7 @@ If expenses exceed income (negative gearing), the net loss can offset your other
 This tool allows you to enter rental income in the Income tab and model the associated loan interest deduction in the Liabilities tab with the "Tax Deductible" option selected.` },
 
   // ─── ASSETS / SUPERANNUATION ─────────────────────────────────────────────
-  { keys: ["accumulation phase","what is accumulation","accumulation super","accumulation account","super savings phase"],
+  { keys: ["accumulation phase","what is accumulation","accumulation super","accumulation account","super savings phase","super while working","super before retirement","saving in super","accumulation mode","growing super","super fund accumulation","super in accumulation"],
     answer: `Accumulation phase is the saving stage of superannuation — you are working, contributing money in, and it is growing.
 
 **Tax treatment:**
@@ -288,7 +288,7 @@ For joint investment loans, the interest deduction can be split between partners
 This is entirely legal and commonly used. The split must reflect the genuine legal ownership structure of the investment asset. This tool allows you to model different ownership splits and see the tax impact on both partners in the projection.` },
 
   // ─── AGE PENSION AND CENTRELINK ─────────────────────────────────────────
-  { keys: ["age pension","centrelink","how does age pension work","what is age pension","am i eligible for age pension","qualifying for pension"],
+  { keys: ["age pension","centrelink","how does age pension work","what is age pension","am i eligible for age pension","qualifying for pension","pension eligibility","part pension","full pension","government pension","centrelink pension payment","how much pension","pension threshold","age 67 pension","pension rates","pension amount","pension payment"],
     answer: `The Age Pension is a Centrelink payment for Australians who reach qualifying age (currently **67**) and pass both financial tests.
 
 For 2025-26, the maximum pension is:
@@ -365,7 +365,7 @@ This creates an important planning consideration. Converting super to pension ph
 • The tool tracks each gift individually with its exact date so the 5-year clock is precise` },
 
   // ─── NOW vs AFTER ────────────────────────────────────────────────────────
-  { keys: ["now vs after","before and after","value of advice card","after advice","how do scenarios work","comparison"],
+  { keys: ["now vs after","before and after","value of advice card","after advice","how do scenarios work","comparison","scenario comparison","what if scenarios","before after comparison","advice value","how to compare scenarios","what does after advice mean","now and after","after scenario","before scenario"],
     answer: `The Now vs After Advice comparison is the centrepiece of this tool — it shows the financial value of making better decisions.
 
 **Now** = your current situation exactly as it is. Enter your real numbers. This is the baseline.
@@ -415,7 +415,7 @@ The mathematics of compounding fees is confronting:
 This is why even small reductions in fee rates — from 1.3% to 0.8%, say — compound into very large differences over a retirement. The tool calculates this precisely using each account's actual fee rates applied to the projected balance each year.` },
 
   // ─── STRESS TESTING ─────────────────────────────────────────────────────
-  { keys: ["stress test","monte carlo","probability","success rate","will i run out of money","sequence of returns","market crash retirement"],
+  { keys: ["stress test","monte carlo","probability","success rate","will i run out of money","sequence of returns","market crash retirement","will my money last","how likely to run out","probability of success","how safe is my plan","retirement risk","financial stress test","retirement probability","worst case scenario","how many simulations","random returns","500 simulations"],
     answer: `The Stress Testing tab runs Monte Carlo simulation — 500 different possible futures for your financial plan.
 
 Instead of assuming a fixed 7% return every year, each simulation draws random returns for each asset class based on its historical volatility. Some simulations have markets booming in early retirement. Others have a major crash in year 2. The range of outcomes shows how robust your plan is.
@@ -440,7 +440,7 @@ However, what counts as "good enough" depends on:
 A success rate of 80–90% is not alarming, but it suggests some vulnerability — perhaps to a prolonged period of poor returns in early retirement. The After Advice scenario should ideally bring this above 90%.` },
 
   // ─── PROJECTIONS TAB ─────────────────────────────────────────────────────
-  { keys: ["how do projections work","projection engine","what does projection show","charts meaning","how is projection calculated"],
+  { keys: ["how do projections work","projection engine","what does projection show","charts meaning","how is projection calculated","how does app calculate","projection assumptions","how accurate is projection","what do charts show","charts explained","year by year","what is projected","how is this calculated"],
     answer: `The projection engine runs year by year from today to your life expectancy, modelling every aspect of your financial situation simultaneously:
 
 • Salary growing at your assumed rate until retirement
@@ -496,7 +496,7 @@ The legislation currently shown reflects:
 • Medicare Levy Act 1986` },
 
   // ─── GENERAL FINANCIAL LITERACY ─────────────────────────────────────────
-  { keys: ["what is compounding","compound interest","compound growth","why invest long term"],
+  { keys: ["what is compounding","compound interest","compound growth","why invest long term","time in market","power of compounding","returns on returns","start investing early","start early","compound effect","long term investing","time value of money","why start early","exponential growth investing"],
     answer: `Compounding is the process of earning returns on your returns — and it is the most powerful force in long-term wealth building.
 
 **Simple example:** $100,000 at 7% per year:
@@ -533,7 +533,7 @@ Contrast this with experiencing the same average returns in a different order �
 
 This is why Monte Carlo simulation is valuable. A simple average-return projection assumes returns are smooth and predictable. They are not.` },
 
-  { keys: ["net wealth","what is net wealth","how is net wealth calculated","total wealth"],
+  { keys: ["net wealth","what is net wealth","how is net wealth calculated","total wealth","net worth","balance sheet","what do i own","total assets minus debts","overall financial position","how much am i worth","net assets"],
     answer: `Net wealth is everything you own minus everything you owe:
 
 **Assets counted:**
@@ -588,8 +588,170 @@ If you would like to explore what that looks like for your specific situation, T
 
 📞 **03 9982 4484**
 🌐 **www.covenantwealth.com.au**` },
+
+  // ─── CAPITAL GAINS TAX ───────────────────────────────────────────────────
+  { keys: ["capital gains tax","cgt","how is capital gains taxed","selling investments tax","capital gain","selling shares tax","property capital gains","cgt discount","50 percent cgt","capital loss"],
+    answer: `Capital Gains Tax (CGT) is not a separate tax — it is a gain included in your taxable income for the year you sell an asset. You pay it at your marginal rate.
+
+**The basics:**
+• Capital gain = sale price minus cost base (what you paid, plus purchase costs)
+• If you've held the asset for more than **12 months**, you include only **50% of the gain** (the CGT discount)
+• If under 12 months, 100% of the gain is taxable
+
+**Examples:**
+• Sell shares held 18 months for a $30,000 gain → taxable gain is **$15,000** (discount applies)
+• Sell a property held 8 months for a $50,000 gain → taxable gain is **$50,000** (no discount)
+
+**Your family home** is generally exempt from CGT — one of the largest tax concessions in the system.
+
+**Inside super:**
+• Accumulation: 10% on gains from assets held 12+ months (fund gets the 1/3 discount, pays 15% on remainder)
+• Pension phase: **0% tax on all gains** — the most powerful CGT concession of all
+
+**Capital losses** can be used to offset capital gains in the same year or carried forward indefinitely to offset future gains.` },
+
+  // ─── DOWNSIZER CONTRIBUTION ──────────────────────────────────────────────
+  { keys: ["downsizer contribution","downsizer super","home sale to super","over 55 super contribution","downsize house super contribution","sell home super","downsizer rule","downsize into super","home proceeds super","55 super contribution"],
+    answer: `The Downsizer Contribution lets you put up to **$300,000 per person** ($600,000 for a couple) into super from your home sale — outside the normal contribution caps.
+
+**Key rules:**
+• You must be **55 or older** at the time of contribution
+• The property must have been your main residence for at least **10 years**
+• Contribute within **90 days of settlement**
+• No work test — you can be fully retired
+• No super balance limit on making the contribution (though the Transfer Balance Cap still limits pension phase)
+• You can only use the downsizer concession **once in a lifetime**
+
+**Why it matters:** The standard non-concessional cap is $120,000 per year. The Downsizer Contribution is entirely separate — $300,000 on top of whatever else you can contribute in the same year.
+
+**Tax treatment:** The contribution goes in as a non-concessional contribution (no tax on the way in) and the balance grows tax-free in pension phase.
+
+The **Downsize Home at 70** what-if on the Dashboard models the impact of this strategy on your projection.` },
+
+  // ─── CARRY-FORWARD CONTRIBUTIONS ─────────────────────────────────────────
+  { keys: ["carry forward","catch up contributions","unused concessional cap","carry forward super","concessional catch up","extra super contributions previous years","unused super cap","super catch up","catch up super","back contributions super"],
+    answer: `The carry-forward rule lets you contribute more than the standard $30,000 concessional cap in a year by using unused cap from the past 5 financial years.
+
+**How it works:**
+• If your concessional contributions were below $30,000 in any of the prior 5 years, the unused amount carries forward
+• In a later year you can contribute the current cap **plus** any accumulated unused amounts
+• **Condition:** Your total super balance must be below **$500,000** at 30 June of the prior year
+
+**Example:** You had a career break and contributed only $10,000 in FY2023-24. In FY2025-26, you can contribute your $30,000 standard cap plus the $20,000 unused from FY23-24 — a total of **$50,000 in one year**, all taxed at 15% instead of your marginal rate.
+
+**Particularly useful for:**
+• People returning from a career break
+• Business owners who had a strong year
+• Anyone who received an inheritance and wants to top up super efficiently
+• People approaching retirement wanting to make a final large concessional contribution
+
+The carry-forward amount available to you is shown in your ATO MyGov account under superannuation.` },
+
+  // ─── PRESERVATION AGE ────────────────────────────────────────────────────
+  { keys: ["preservation age","when can i access super","how old to access super","access super early","super access rules","what age can i withdraw super","when can i take money out of super","super withdrawal age","condition of release","when can i retire and access super"],
+    answer: `Preservation age is the earliest you can generally access your superannuation. As of 1 July 2024, preservation age is **60 for everyone** (the transition from the old 55-60 sliding scale is now complete).
+
+**What "accessing super" means:**
+• Once you reach 60 and **retire** (meet a condition of release), you can access your super fully — as a lump sum, a pension income stream, or both — completely tax-free after 60
+• Once you turn **65**, you can access your super regardless of whether you are still working
+• Between 60 and 65, you need a condition of release
+
+**Conditions of release (most common):**
+• Ceasing employment after reaching preservation age
+• Turning 65 (no employment condition)
+• Terminal medical condition
+• Severe financial hardship (limited access)
+• Permanent incapacity
+
+**Distinction from pension age:** Preservation age (60) is when you can access super. Pension age (67) is when you qualify for the Centrelink Age Pension. They are different thresholds — many people fund 7 years of retirement from super and investment assets before the Age Pension kicks in.
+
+This tool models your super access based on the retirement date set in the Personal tab.` },
+
+  // ─── INSURANCE IN SUPER ──────────────────────────────────────────────────
+  { keys: ["insurance in super","life insurance super","tpd super","income protection super","super insurance","death cover super","total permanent disability","income protection","insurance through super","default insurance","group insurance super"],
+    answer: `Most Australians have some form of life insurance through their superannuation fund — often without fully realising it.
+
+**Types of insurance typically available inside super:**
+• **Life cover (death benefit):** Pays a lump sum to your beneficiaries on death
+• **Total & Permanent Disability (TPD):** Pays if you become permanently unable to work
+• **Income Protection:** Replaces a portion of your income (typically 70–75%) if you cannot work due to illness or injury for an extended period
+
+**Advantages of insurance inside super:**
+• Premiums are paid from your super balance — no impact on take-home pay
+• Usually cheaper than retail policies because funds negotiate group rates
+• Default cover is often automatic when you join a fund
+
+**Watch-outs:**
+• Premiums erode your super balance — particularly for younger members or those with low balances
+• Default cover definitions may not suit your situation (too broad, too narrow, wrong occupation class)
+• Income protection inside super is generally limited to 2 years; retail policies can cover to age 65
+• Switching funds can cause default cover to lapse
+
+**Not modelled in this tool:** Insurance premiums and benefits are not included in the projection. If you carry significant super insurance, your super balance will grow slightly slower than shown.` },
+
+  // ─── DEATH BENEFIT / SUPER NOMINATIONS ───────────────────────────────────
+  { keys: ["death benefit","super after death","binding nomination","beneficiaries super","what happens to super when i die","super estate","non lapsing nomination","who gets my super","super death","binding death benefit nomination","bdbn","super will"],
+    answer: `Superannuation does not automatically form part of your estate — your Will alone does not control where it goes.
+
+Super is held in trust by the fund's trustee, who decides how to distribute it on death unless you have given a valid binding instruction.
+
+**Types of nominations:**
+• **Binding Death Benefit Nomination (BDBN):** A legally binding instruction. If valid and current, the trustee must follow it. Most lapse after 3 years — check yours.
+• **Non-lapsing nomination:** A permanent binding instruction (available from some funds). Does not expire.
+• **Non-binding nomination:** A guide to the trustee — they will consider it but can exercise discretion.
+• **No nomination:** The trustee decides, which can lead to unintended outcomes and delays.
+
+**Who can receive super on death:**
+• Spouse or de facto partner
+• Children (any age — but tax concessions only apply for minor or financially dependent children)
+• Financial dependants
+• Your legal personal representative (estate) — from there, the Will controls distribution
+
+**Tax on death benefits:**
+• **Tax-free** if paid to a tax dependant (spouse, minor child, financially dependent child)
+• Taxable component may attract **15% + Medicare levy** if paid to a non-dependant (adult child who is financially independent)
+
+**Action point:** Check your fund's nomination status. Outdated or missing nominations are one of the most common and costly oversights in financial planning. Reviewing this with a financial adviser is worth the time.` },
+
+  // ─── WORK BONUS ──────────────────────────────────────────────────────────
+  { keys: ["work bonus","pensioner work bonus","work while on pension","earning while on pension","income exemption pensioner","centrelink work income","work and receive pension","part time work pension","can pensioners work","earn income on pension"],
+    answer: `The Work Bonus allows age pensioners to earn employment income without it immediately reducing their pension.
+
+**How it works (2025-26):**
+• The first **$300 per fortnight** of employment income (wages, not investment income) is exempt from the Centrelink income test
+• Unused Work Bonus amounts accumulate in a **Work Bonus bank** — maximum accumulation is **$11,800**
+• When you return to work after a period of not working, you draw from the bank before the income test applies
+
+**Practical example:** You've accumulated the full $11,800 in your bank. You take a short-term consulting role earning $20,000 over 3 months:
+• First $11,800 is covered by the bank → no pension impact
+• Remaining income above $300 fortnightly triggers the 50 cents in the dollar income test taper
+
+This makes part-time or occasional work significantly more viable for pensioners than many people realise.
+
+**What doesn't count as Work Bonus income:**
+• Investment returns, dividends, rental income
+• Business income (this is treated as self-employment income with different rules)
+
+**Not modelled in this tool** — employment income you enter is treated as fully assessable. If you plan to work part-time in retirement, the Work Bonus can meaningfully affect your Centrelink position; a financial adviser can model this accurately.` },
+
+  // ─── SPOUSE CONTRIBUTIONS / SUPER SPLITTING ──────────────────────────────
+  { keys: ["spouse contributions","spouse super","contribute to partner super","super splitting","split super spouse","low income spouse super","spouse rebate","super for partner","equalise super","balance super couple","spouse super top up","partner super contribution"],
+    answer: `There are two ways to build your lower-earning partner's super — spouse contributions and super splitting.
+
+**Spouse Contributions:**
+You contribute after-tax money directly to your partner's super account. If your partner earns below $40,000 per year, you receive a tax offset of up to **$540** (18% of up to $3,000 contributed). The offset phases out above $37,000 and disappears at $40,000.
+
+**Super Splitting:**
+You can split up to **85% of your own concessional contributions** made in a financial year into your partner's account. This doesn't reduce the contributions tax — both partners still pay 15% — but it redistributes the balance.
+
+**Why equalising super balances matters:**
+• **Transfer Balance Cap** applies per person — two equal balances can hold up to **$3.8M** in tax-free pension phase combined vs one large balance limited to $1.9M
+• **Centrelink:** Each person's super in accumulation is excluded from the Centrelink assets test while under pension age. Splitting can extend the period before the combined super counts for Centrelink.
+• **Death risk:** If the higher-balance partner dies early, super held in pension phase is included in the surviving partner's transfer balance. Having more equally balanced accounts reduces this risk.
+
+The tool lets you model contributions to each partner's super separately in the Income tab.` },
 ];
-;
+
 
 // Legacy finder — kept for any callers that still want the
 // "push to Tudor if I don't know" behaviour. Covie does NOT use this.
@@ -632,15 +794,15 @@ export function findEducationalAnswer(question) {
 }
 
 export const QUICK_QUESTIONS = {
-  dashboard: ["What is the Value of Advice?", "How does Now vs After work?", "What is net wealth?"],
-  personal: ["Why does date of birth matter?", "What is life expectancy used for?", "What retirement age should I use?"],
-  income: ["What is salary sacrifice?", "How do franking credits work?", "What is the super guarantee rate?"],
-  assets: ["How does pension conversion work?", "What is a TTR pension?", "Accumulation vs pension phase?"],
+  dashboard: ["What is the Value of Advice?", "How does Now vs After work?", "What is net wealth?", "What does success rate mean?"],
+  personal: ["Why does date of birth matter?", "What is life expectancy used for?", "What is preservation age?"],
+  income: ["What is salary sacrifice?", "How do franking credits work?", "How do spouse contributions work?", "What is the work bonus?"],
+  assets: ["How does pension conversion work?", "What is a TTR pension?", "What is a downsizer contribution?", "What is carry-forward super?"],
   expenses: ["What are the gifting rules?", "How does indexation work?", "What is a lifestyle expense period?"],
   liabilities: ["Is my loan interest tax deductible?", "What is an ownership split?", "What is interest-only vs P&I?"],
   projections: ["How do projections work?", "What does the Δ After column mean?", "Why does age pension change over time?"],
-  monte_carlo: ["What is stress testing?", "What does success rate mean?", "What's a good success rate?"],
-  tax_rates: ["What are the 2025-26 tax rates?", "What is Division 293?", "How does the assets test work?"],
+  monte_carlo: ["What is stress testing?", "What does success rate mean?", "What's a good success rate?", "What is sequence of returns risk?"],
+  tax_rates: ["What are the 2025-26 tax rates?", "What is capital gains tax?", "What is Division 293?", "How does the assets test work?"],
   returns: ["What is a balanced portfolio?", "What does volatility mean?", "What return should I expect?"],
 };
 
