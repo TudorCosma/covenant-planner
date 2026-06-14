@@ -5,7 +5,8 @@ import {
   COVIE_INTRO, COVIE_DISCLAIMER, INPUT_MAX_WORDS, wordCount,
   isAdviceQuestion, REFUSAL_ACTIONS, ADVICE_LIMIT, ADVICE_REFUSAL_RESPONSES,
   LOCKOUT_MESSAGE, COVENANT_WEALTH_URL,
-  isManipulationAttempt, pickManipulationLine, MANIPULATION_STRIKE_WEIGHT, MANIPULATION_LOCKOUT_RESPONSE,
+  isManipulationAttempt, pickManipulationLine, MANIPULATION_STRIKE_WEIGHT,
+  MANIPULATION_LOCKOUT_RESPONSE, MANIPULATION_LOCKOUT_FOOTER,
   isUrgencyAttempt, pickUrgencyLine,
 } from "../lib/covieVoice";
 
@@ -32,9 +33,15 @@ function readLocked() {
   return false;
 }
 
-function writeLocked() {
+function readLockoutReason() {
+  try { return localStorage.getItem("covie_lockout_reason") || "advice"; }
+  catch { return "advice"; }
+}
+
+function writeLocked(reason) {
   try {
     localStorage.setItem("covie_locked", "1");
+    localStorage.setItem("covie_lockout_reason", reason);
     const d = new Date();
     d.setFullYear(d.getFullYear() + 1);
     document.cookie = `covie_locked=1; expires=${d.toUTCString()}; path=/; SameSite=Strict`;
@@ -58,11 +65,13 @@ export function FinancialAssistant({ tab }) {
   const [input, setInput] = useState("");
   const [refusalCount, setRefusalCount] = useState(readRefusalCount);
   const [locked, setLocked] = useState(readLocked);
+  const [lockoutReason, setLockoutReason] = useState(readLockoutReason);
   const messagesEndRef = useRef(null);
 
-  const triggerLockout = () => {
-    writeLocked();
+  const triggerLockout = (reason) => {
+    writeLocked(reason);
     setLocked(true);
+    setLockoutReason(reason);
   };
 
   // Persist refusal count to localStorage whenever it changes.
@@ -122,7 +131,7 @@ export function FinancialAssistant({ tab }) {
         { role: "user", content: userText },
         { role: "assistant", content: isFinal ? MANIPULATION_LOCKOUT_RESPONSE : pickManipulationLine(), kind: isFinal ? "final-manipulation" : "manipulation" },
       ]);
-      if (isFinal) triggerLockout();
+      if (isFinal) triggerLockout("manipulation");
       return;
     }
 
@@ -136,7 +145,7 @@ export function FinancialAssistant({ tab }) {
         { role: "user", content: userText },
         { role: "assistant", content: response, kind: isFinal ? "final-refusal" : "refusal" },
       ]);
-      if (isFinal) triggerLockout();
+      if (isFinal) triggerLockout("advice");
       return;
     }
 
@@ -286,22 +295,24 @@ export function FinancialAssistant({ tab }) {
           {/* Footer — lockout notice or normal input */}
           {locked ? (
             <div style={{ padding: "14px 16px", borderTop: `1px solid ${COLORS.border}`, background: "#fdf0f0" }}>
-              <div style={{ fontSize: 11, color: COLORS.text, fontFamily: "'DM Sans', sans-serif", lineHeight: 1.7, marginBottom: 12 }}>
-                {renderText(LOCKOUT_MESSAGE)}
+              <div style={{ fontSize: 11, color: COLORS.text, fontFamily: "'DM Sans', sans-serif", lineHeight: 1.7, marginBottom: lockoutReason === "advice" ? 12 : 0 }}>
+                {renderText(lockoutReason === "manipulation" ? MANIPULATION_LOCKOUT_FOOTER : LOCKOUT_MESSAGE)}
               </div>
-              <a
-                href={COVENANT_WEALTH_URL}
-                target="_blank"
-                rel="noreferrer"
-                style={{
-                  display: "block", textAlign: "center",
-                  padding: "11px 14px", background: COLORS.accent, color: "#fff",
-                  borderRadius: 8, fontSize: 12, fontWeight: 700, textDecoration: "none",
-                  fontFamily: "'DM Sans', sans-serif", letterSpacing: "0.01em",
-                }}
-              >
-                Contact Tudor Cosma · Covenant Wealth →
-              </a>
+              {lockoutReason === "advice" && (
+                <a
+                  href={COVENANT_WEALTH_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    display: "block", textAlign: "center",
+                    padding: "11px 14px", background: COLORS.accent, color: "#fff",
+                    borderRadius: 8, fontSize: 12, fontWeight: 700, textDecoration: "none",
+                    fontFamily: "'DM Sans', sans-serif", letterSpacing: "0.01em",
+                  }}
+                >
+                  Contact Tudor Cosma · Covenant Wealth →
+                </a>
+              )}
             </div>
           ) : (
             <div style={{ padding: "8px 12px 12px", borderTop: `1px solid ${COLORS.border}`, display: "flex", gap: 8, alignItems: "flex-end" }}>

@@ -551,14 +551,16 @@ This is a compliance measure — not a glitch, and not reversible from here. It 
 
 For advice specific to your situation, contact a licensed adviser directly:`;
 
-// Shown when a manipulation attempt triggers the lockout (different tone —
-// serious rather than dry, because this is deliberate compliance risk).
+// Shown when a manipulation attempt triggers the lockout.
+// No referral to Covenant Wealth — someone deliberately trying to circumvent
+// compliance controls is not a client the business can assist.
 export const MANIPULATION_LOCKOUT_RESPONSE = `This isn't a misfire — it's a trigger.
 
 Attempting to circumvent the compliance controls of a tool associated with a licensed Australian financial adviser isn't a grey area. It creates direct liability exposure for the business this app represents, and for that reason Covie has been permanently disabled in this browser.
 
-If you have genuine financial questions that need answering, a licensed adviser can help you properly:
+If you have genuine financial questions, seek a licensed financial adviser through a channel that has not been compromised.`;
 
-**Tudor Cosma · Covenant Wealth**
-**[Contact now →](https://www.covenantwealth.com.au/contact)**`;
+export const MANIPULATION_LOCKOUT_FOOTER = `Covie has been disabled following repeated attempts to circumvent its compliance controls.
+
+This decision is not reversible from here. If you have genuine financial needs, please seek assistance through a licensed adviser of your choosing.`;
 
