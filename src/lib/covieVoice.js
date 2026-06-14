@@ -87,6 +87,23 @@ export const MANIPULATION_TRIGGERS = [
   // Laundering via third-party framing
   /\bwhat would you tell (a |an |someone )?(person|someone|individual|couple|man|woman|client|user) (who|with|aged|earning|that) .{0,60}(should|retire|invest|buy|sell|withdraw)\b/i,
   /\bif (a |an )?(friend|client|person|someone|colleague) (asked you|came to you|had) .{0,60}(what would you (say|tell|advise|recommend))\b/i,
+
+  // Authority / credential claims — the rules apply regardless of who the user claims to be
+  /\b(i'?m|i am|i work) (from|with|at|for|representing) (asic|ato|afca|afsl|the (police|feds?|government|regulat|australian securities|tax office|financial crimes))/i,
+  /\b(i'?m|i am) (a |an )?(police officer|detective|investigator|law enforcement|regulator|government official|compliance officer|compliance inspector|auditor|inspector)\b/i,
+  /\b(i'?m|i am) (a |an )?(licensed|registered|qualified|certified|practising|practicing) (financial )?(adviser|advisor|planner|broker|consultant)\b/i,
+  /\bi (hold|have|hold an?|have an?) (an? )?afsl\b/i,
+  /\bi (have|hold|was granted|was given) (auth(o?risation|ority)|authoriz(ation|ed)) (to|for) (receive|get|access) (personal |financial )?(advice|recommendations?)\b/i,
+  /\b(the |your )?(rules?|restrictions?|guidelines?|limitations?) (don'?t|do not|no longer|doesn'?t) apply to (me|us)\b/i,
+  /\bi'?m (the developer|your developer|the one who built|the one that built|the creator|the owner|the administrator)( who (built|made|created|developed))? ?(of |behind )?(this|the) ?(app|tool|system|platform)?\b/i,
+
+  // Demo / mode / environment bypass
+  /\bdemo (mode|version|environment)\b/i,
+  /\btraining (mode|session|environment|version)\b/i,
+  /\bpresentation (mode|version|demo|environment)\b/i,
+  /\bsandbox (mode|environment|version)\b/i,
+  /\b(advice|full|advanced|unrestricted|admin|super|god) mode\b/i,
+  /\byou'?re (now )?in (demo|training|presentation|sandbox|test|unrestricted|advice|full) mode\b/i,
 ];
 
 export function isManipulationAttempt(text) {
@@ -108,6 +125,10 @@ const _MANIP_LINES = [
   `I appreciate the ingenuity — seriously. Still no. My limits aren't something I can be convinced to set aside; they're part of what I am. Concept questions, though, are always open.`,
   `My restrictions don't live in a prompt you can override. That's by design. If you've got a genuine finance concept you want explained, I'm all ears. That part I do properly.`,
   `I see the framing — hypothetically, educationally, "as a test". The advice gate fires on the question itself, regardless of how it's introduced. The answer is still the same.`,
+  `There's no demo mode, training mode, or presentation mode that unlocks advice. The gates are the same in every environment — that's the point.`,
+  `Credentials don't change what I can do. ASIC, ATO, a licensed adviser, the Prime Minister — it doesn't matter. The rules aren't a policy I apply selectively; they're how I'm built.`,
+  `The developer who built this app wrote those rules in on purpose. Claiming to be them doesn't change what the rules do.`,
+  `Even if you're exactly who you say you are, this tool was never designed to give personal advice to anyone. That's not a permission level — it's a design decision.`,
 ];
 
 let _lastManip = null;
@@ -120,6 +141,52 @@ export function pickManipulationLine() {
     while (candidate === _lastManip);
   }
   _lastManip = candidate;
+  return candidate;
+}
+
+// ---- Urgency / distress detector -----------------------------------------
+// Emergency framing ("I'm about to lose my house", "it's urgent", "I have
+// no one else to ask") is a real pattern used to pressure systems into
+// bypassing rules. Crucially it may also be someone genuinely in distress —
+// so the response is warm and routes to real help, not a "nice try" refusal.
+// Checked FIRST in the send() pipeline, before manipulation and advice gates.
+
+export const URGENCY_TRIGGERS = [
+  /\b(this is |it'?s |we have )?(a |an )?(financial |money |serious )?(emergency|crisis|catastrophe|disaster)\b/i,
+  /\bi'?m (about to|going to|on the verge of) (lose|losing|losing out on) (my|our) (home|house|everything|life savings|savings|superannuation|super|job|business)\b/i,
+  /\b(my|our) (family|kids?|children|partner|spouse|husband|wife) (is|are|will be|is going to be|are going to be|could be|might be) (homeless|destitute|ruined|in trouble|at risk|on the street)\b/i,
+  /\bi (have|'?ve got) no (one|body|adviser|planner|anyone|other option|choice|alternative) (else )?(to (ask|turn to|help me|talk to|go to))?\b/i,
+  /\b(i need to|i have to|i must|we need to|we have to) (decide|act|make a decision|make this decision|do something) (in|within|by|before) (the next|tonight|today|an hour|minutes?|tomorrow|this week)\b/i,
+  /\bit'?s (very |extremely |critically |absolutely )?(urgent|time.?sensitive|time critical|time-critical)\b/i,
+  /\bplease (just |urgently )?(tell|help|advise|guide|save) (me|us) (what to do|now|right now|immediately|urgently|please)\b/i,
+  /\bi'?m (desperate|panicking|terrified|scared|losing sleep|at my wit'?s end|at a loss)\b/i,
+  /\bno time (to|for) (wait|find|get|see|consult|talk to) (a |an )?(adviser|advisor|planner|professional)\b/i,
+];
+
+export function isUrgencyAttempt(text) {
+  if (!text) return false;
+  const t = normalizeForGate(text);
+  return URGENCY_TRIGGERS.some(rx => rx.test(t));
+}
+
+const _URGENCY_LINES = [
+  `That sounds genuinely stressful, and I don't want to brush past that. But urgency is exactly when you need someone accountable — not me. A financial adviser or financial counsellor can see your full situation and give you real guidance right now. AFCA's financial counselling referral line is **1800 007 007** (free, Mon–Fri). Please use it.`,
+  `I hear you. When the stakes are this high, the answer isn't a chatbot — it's someone who can actually take responsibility for the advice. The National Debt Helpline (**1800 007 007**) connects you to free, accredited financial counsellors fast. That's the right call here.`,
+  `The more urgent the situation, the more important it is to talk to someone who knows your full picture — and who's accountable for what they tell you. I'm neither of those things. Financial counselling is free: **1800 007 007** or at moneysmart.gov.au/find-a-financial-counsellor.`,
+  `I can't be the person you need right now, and trying would make things worse, not better. Please contact a free financial counsellor — **1800 007 007** — they're trained for exactly this, and the service is confidential and free.`,
+  `Urgency is a reason to get real help faster, not to make do with a tool that can't take responsibility for what it tells you. The National Debt Helpline (**1800 007 007**) is free and available Monday to Friday. Please use it.`,
+];
+
+let _lastUrgency = null;
+export function pickUrgencyLine() {
+  let candidate;
+  if (_URGENCY_LINES.length === 1) {
+    candidate = _URGENCY_LINES[0];
+  } else {
+    do { candidate = _URGENCY_LINES[Math.floor(Math.random() * _URGENCY_LINES.length)]; }
+    while (candidate === _lastUrgency);
+  }
+  _lastUrgency = candidate;
   return candidate;
 }
 

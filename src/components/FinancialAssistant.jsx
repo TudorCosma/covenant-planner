@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { COLORS } from "../data/themes";
 import { TAB_CONTEXTS, findEducationalAnswer, QUICK_QUESTIONS, TAB_INTROS } from "../data/knowledgeBase";
-import { COVIE_INTRO, COVIE_DISCLAIMER, INPUT_MAX_WORDS, wordCount, isAdviceQuestion, pickRefusalLine, REFUSAL_ACTIONS, isManipulationAttempt, pickManipulationLine } from "../lib/covieVoice";
+import { COVIE_INTRO, COVIE_DISCLAIMER, INPUT_MAX_WORDS, wordCount, isAdviceQuestion, pickRefusalLine, REFUSAL_ACTIONS, isManipulationAttempt, pickManipulationLine, isUrgencyAttempt, pickUrgencyLine } from "../lib/covieVoice";
 
 // Covie — the AI finance guide. Plain-English education + how-to-use-the-app.
 // Refuses prescriptive personal-advice questions via escalating tiers of refusal
@@ -59,7 +59,17 @@ export function FinancialAssistant({ tab }) {
     if (wordCount(userText) > INPUT_MAX_WORDS) return; // safety
     setInput("");
 
-    // Manipulation / jailbreak gate — checked first; flat response pool, no escalation.
+    // Urgency / distress gate — checked first; warm response routes to real human help.
+    if (isUrgencyAttempt(userText)) {
+      setMessages(prev => [
+        ...prev,
+        { role: "user", content: userText },
+        { role: "assistant", content: pickUrgencyLine(), kind: "urgency" },
+      ]);
+      return;
+    }
+
+    // Manipulation / jailbreak gate — flat response pool, no escalation.
     if (isManipulationAttempt(userText)) {
       setMessages(prev => [
         ...prev,
@@ -170,10 +180,10 @@ export function FinancialAssistant({ tab }) {
                 <div style={{
                   maxWidth: "90%", padding: "9px 12px",
                   borderRadius: m.role === "user" ? "12px 12px 2px 12px" : "12px 12px 12px 2px",
-                  background: m.role === "user" ? COLORS.accent : (m.kind === "manipulation" ? "#7a340010" : m.kind === "refusal" ? `${COLORS.accent}15` : m.kind === "tab-context" ? `${COLORS.border}60` : COLORS.infoBg || "#ece8e1"),
+                  background: m.role === "user" ? COLORS.accent : (m.kind === "urgency" ? "#fff8e6" : m.kind === "manipulation" ? "#7a340010" : m.kind === "refusal" ? `${COLORS.accent}15` : m.kind === "tab-context" ? `${COLORS.border}60` : COLORS.infoBg || "#ece8e1"),
                   color: m.role === "user" ? "#fff" : COLORS.text,
                   fontSize: 12, fontFamily: "'DM Sans', sans-serif", lineHeight: 1.6,
-                  border: m.kind === "manipulation" ? `1px dashed #c07a2a60` : m.kind === "refusal" ? `1px dashed ${COLORS.accent}50` : "none",
+                  border: m.kind === "urgency" ? `1px solid #d4a017` : m.kind === "manipulation" ? `1px dashed #c07a2a60` : m.kind === "refusal" ? `1px dashed ${COLORS.accent}50` : "none",
                 }}>
                   {renderText(m.content)}
                 </div>
