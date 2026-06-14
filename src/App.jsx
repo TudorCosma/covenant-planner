@@ -5,7 +5,7 @@ import { COVENANT_LOGO } from "./data/logo";
 import { DEFAULT_STATE } from "./data/defaultState";
 import { loadLegislation } from "./data/legislation";
 import { runProjection } from "./lib/projection";
-import { saveState as persistSave, loadState as persistLoad, clearState as persistClear, exportPlanToFile, importPlanFromFile } from "./lib/persistence";
+import { saveState as persistSave, loadState as persistLoad, clearState as persistClear, exportPlanToFile, importPlanFromFile, PRIVACY_NOTE } from "./lib/persistence";
 import {
   DashboardTab, PersonalTab, IncomeTab, AssetsTab, ExpensesTab,
   LiabilitiesTab, ProjectionsTab, MonteCarloTab, TaxTab, ReturnsTab, SettingsTab,
@@ -344,6 +344,10 @@ function SaveStatusBadge({ status, isCovenant, onExport, onImport, onReset }) {
                 {item.label}
               </button>
             ))}
+            <div style={{ marginTop: 4, padding: "8px 10px", borderTop: `1px solid ${COLORS.border}`, fontSize: 9, color: COLORS.textDim, lineHeight: 1.4, display: "flex", gap: 6 }}>
+              <span aria-hidden="true">🔒</span>
+              <span>{PRIVACY_NOTE}</span>
+            </div>
           </div>
         </>
       )}

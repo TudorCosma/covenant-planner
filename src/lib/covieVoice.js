@@ -32,6 +32,9 @@ export function wordCount(s) {
 // suppresses obvious false-positives.
 export const ADVICE_TRIGGERS = [
   /\bshould (i|we) (retire|buy|sell|invest|contribute|salary[ -]?sacrifice|put|move|switch|pay (off|down)|withdraw|gift|downsize|borrow|refinance|stop|start|take|claim|use)\b/i,
+  // Mirror of the above for the natural "I/we should …" word order, so a decision wrapped
+  // in concept framing ("explain why I should retire at 60") can't slip past the allowlist.
+  /\b(i|we) should (retire|buy|sell|invest|contribute|salary[ -]?sacrifice|put|move|switch|pay (off|down)|withdraw|gift|downsize|borrow|refinance|stop|start|take|claim|use)\b/i,
   /\bcan (i|we) (retire|afford|stop working|do this|do that)\b/i,
   /\b(am i|are we) (on track|going to be ok|ready|set|fine)\b/i,
   /\bis (it|this|that|now) (a )?(good|bad|smart|enough|right) (idea|move|amount|strategy|time)\b/i,
@@ -57,8 +60,15 @@ const CONCEPT_ALLOWLIST = [
 
 export function isAdviceQuestion(text) {
   if (!text) return false;
+  // Personal-advice intent is checked BEFORE the concept allowlist. A decision request
+  // wrapped in educational framing — e.g. "explain why I should retire at 60" — pairs a
+  // concept word ("explain") with a clear decision verb ("should I retire") and must be
+  // refused, not bypassed by the stray concept word. The triggers are tuned to decision
+  // verbs, so genuine concept questions ("should I understand franking credits?") don't fire.
+  if (ADVICE_TRIGGERS.some(rx => rx.test(text))) return true;
+  // No decision verb detected — an explicit concept/education phrasing is a safe question.
   if (CONCEPT_ALLOWLIST.some(rx => rx.test(text))) return false;
-  return ADVICE_TRIGGERS.some(rx => rx.test(text));
+  return false;
 }
 
 // ---- Escalation tiers ----------------------------------------------------

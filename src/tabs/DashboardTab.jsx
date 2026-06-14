@@ -6,6 +6,7 @@ import { ASSET_LABELS, DEFAULT_RETURN_PROFILES, DEFAULT_ASSET_RETURNS, normalize
 import { DEFAULT_TAX_BRACKETS_2024, DEFAULT_SUPER_PARAMS, DEFAULT_CENTRELINK, DEFAULT_MEDICARE } from "../data/tax2024";
 import { Input, DateInput, FYInput, Select, Card, StatCard, Btn, Modal, HeaderBtn, ScenarioToggle, ReturnSummary, FinancialAssistant, DeficitWarningBadge, MortgageStressBadge, GoalProgress, ScenarioButtons } from "../components";
 import { fmt, pct, calcIncomeTax, calcMedicare, boxMullerRandom, calcDeprivedAssets, calcCentrelinkPension, calcDeemedIncome, getMonthlyEquiv, calcLoanPayoff, runProjection, buildDeficitInfo } from "../lib";
+import { coercePlanState } from "../lib/persistence";
 export function DashboardTab({ state: nowState, projectionData: nowProjectionData, afterProjectionData, afterState, scenario, setState: setNowState, setAfterState, setTab }) {
   // Build deficit diagnostics for both scenarios so cards/charts can flag unsustainable plans.
   // The "Value of Advice" tiles compare Now-vs-After, so flag if either has deficit years; the
@@ -259,10 +260,19 @@ export function DashboardTab({ state: nowState, projectionData: nowProjectionDat
     report += `Prepared: ${date}\n`;
     report += `For: ${n1}${now.personal.isCouple ? ` & ${n2}` : ""}\n\n`;
     report += "───────────────────────────────────────────────────\n";
-    report += "   VALUE OF ADVICE SUMMARY\n";
+    report += "   EDUCATIONAL PROJECTION — NOT FINANCIAL ADVICE\n";
     report += "───────────────────────────────────────────────────\n";
-    report += `Extra Assets at Retirement: ${fmt(assetsDiff)}\n`;
-    report += `Tax Saved Over Life:        ${fmt(taxSaved)}\n\n`;
+    report += "This plan is an educational projection only and is NOT\n";
+    report += "personal financial advice. It does not take into account\n";
+    report += "your full circumstances, needs or objectives. All figures\n";
+    report += "are estimates in today's dollars based on assumptions that\n";
+    report += "will change over time. Before acting on anything here, seek\n";
+    report += "advice from a licensed financial adviser.\n";
+    report += "───────────────────────────────────────────────────\n";
+    report += "   VALUE OF ADVICE SUMMARY (projected estimates)\n";
+    report += "───────────────────────────────────────────────────\n";
+    report += `Projected Extra Assets at Retirement: ${fmt(assetsDiff)}\n`;
+    report += `Estimated Tax Saved Over Life:        ${fmt(taxSaved)}\n\n`;
     report += "───────────────────────────────────────────────────\n";
     report += "   YOUR ACTION CHECKLIST\n";
     report += "───────────────────────────────────────────────────\n";
@@ -328,6 +338,11 @@ export function DashboardTab({ state: nowState, projectionData: nowProjectionDat
       if (match) raw = match[1].trim();
       const json = JSON.parse(decodeURIComponent(escape(atob(raw))));
       if (json.now) {
+        // Untrusted paste — run the same structural validation + default-merge the file-import
+        // path uses, so a malformed/partial blob can't replace live state or crash a tab
+        // (e.g. an empty superAccounts object missing p1Super).
+        const safeNow = coercePlanState(json.now, "Now");
+        const safeAfter = json.after != null ? coercePlanState(json.after, "After Advice") : null;
         // Backward-compat: older saves may be missing newer legislation fields
         // (e.g. minPensionDrawdownRates, earliestSuperAccessAge added April 2026).
         // Merge each saved state with current defaults so projections always have the
@@ -373,9 +388,9 @@ export function DashboardTab({ state: nowState, projectionData: nowProjectionDat
         };
         // Always write the Now portion to the Now baseline (not the scenario-routed setter),
         // otherwise loading while viewing After would write json.now into afterState.
-        setNowState(mergeLegislation(json.now));
-        if (json.after && setAfterState) {
-          setAfterState(mergeLegislation(json.after));
+        setNowState(mergeLegislation(safeNow));
+        if (safeAfter && setAfterState) {
+          setAfterState(mergeLegislation(safeAfter));
         }
         setShowSaveLoad(null);
         setLoadText("");
@@ -384,7 +399,10 @@ export function DashboardTab({ state: nowState, projectionData: nowProjectionDat
         setLoadError("Invalid data format — no 'now' state found.");
       }
     } catch (e) {
-      setLoadError("Could not parse the data. Make sure you copied the full text between ---BEGIN and ---END markers.");
+      const msg = e?.message || "";
+      setLoadError(msg.startsWith("This file")
+        ? msg
+        : "Could not parse the data. Make sure you copied the full text between ---BEGIN and ---END markers.");
     }
   };
 

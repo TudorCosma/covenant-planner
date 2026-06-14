@@ -3,13 +3,14 @@ import { calcMedicareLevy, calcMLS } from './medicare';
 import { calcLITO, calcSAPTO } from './taxOffsets';
 import { calcCentrelinkPension, calcDeemedIncome, calcDeprivedAssets } from './centrelink';
 import { calcLoanPayoff, getMonthlyEquiv } from './loans';
+import { calcCoContribution, calcLISTO, calcSpouseOffset } from './superRules';
 import { boxMullerRandom } from './monteCarlo';
 import { resolveProfileKey } from '../data/returnProfiles';
 
 // Apply the post-FY25-26 tax pipeline for a single person.
 // Returns total tax (income tax after LITO/SAPTO + Medicare + MLS),
 // and the refundable-franking adjustment (positive = refund the taxpayer).
-function calcPersonTax({ taxable, frankingCredit, age, isCouple, illnessSeparated, hasPrivateHealth, dependents, reportableExtras, partnerMLSIncome, legislation, taxSettings }) {
+function calcPersonTax({ taxable, rebateIncome, frankingCredit, age, isCouple, illnessSeparated, hasPrivateHealth, dependents, reportableExtras, partnerMLSIncome, legislation, taxSettings }) {
   const t = legislation || {};
   const ts = taxSettings || {};
   const grossIncomeTax = calcIncomeTax(taxable, t.taxBrackets || []);
@@ -20,7 +21,11 @@ function calcPersonTax({ taxable, frankingCredit, age, isCouple, illnessSeparate
   if (ts.applyLITO !== false && t.lito) lito = calcLITO(taxable, t.lito);
   if (ts.applySAPTO !== false && t.sapto && age >= (t.centrelink?.ageQualifyingAge || 67)) {
     const category = illnessSeparated ? "illnessSeparated" : (isCouple ? "couple" : "single");
-    sapto = calcSAPTO(taxable, category, t.sapto);
+    // SAPTO phases out on "rebate income" (ATO) = taxable income + reportable super
+    // contributions + reportable fringe benefits + net investment losses — NOT raw
+    // taxable income. Callers pass it explicitly; fall back to taxable if absent.
+    const ri = (rebateIncome == null ? taxable : rebateIncome);
+    sapto = calcSAPTO(ri, category, t.sapto);
   }
   const offsets = lito + sapto;
   const incomeTaxAfterOffsets = Math.max(0, grossIncomeTax - offsets);
@@ -168,6 +173,60 @@ export function runProjection(state, useRandomReturns = false, seed = 0) {
   let p2NonSuperH = initHoldings(p2NonSuperBal, assets.nonSuper.p2NonSuper?.profile || nonSuperProfile);
   let jointNonSuperH = initHoldings(jointNonSuperBal, nonSuperProfile);
 
+  // ---- Non-super capital gains tax (CGT) state ----
+  // Each non-super pool carries an embedded UNREALISED gain. When the pool is drawn
+  // down (or sold) the embedded gain is REALISED proportionally; deposits / sale
+  // proceeds add balance with zero gain, diluting the embedded fraction. Realised
+  // gains are assessed in the FOLLOWING financial year (matching real CGT timing:
+  // sell in FY N, pay the CGT in the FY N return, lodged in FY N+1).
+  const nsGainOwned = (acc, ownerRole, want) =>
+    getOwner(acc, ownerRole) === want ? (acc?.unrealisedGains || 0) : 0;
+  let p1NSGain =
+    nsGainOwned(assets.nonSuper.p1NonSuper, "p1", "p1") +
+    nsGainOwned(assets.nonSuper.p1NonSuper2, "p1", "p1");
+  let p2NSGain =
+    nsGainOwned(assets.nonSuper.p2NonSuper, "p2", "p2") +
+    nsGainOwned(assets.nonSuper.p2NonSuper2, "p2", "p2");
+  let jointNSGain =
+    nsGainOwned(assets.nonSuper.p1NonSuper, "p1", "joint") +
+    nsGainOwned(assets.nonSuper.p2NonSuper, "p2", "joint") +
+    nsGainOwned(assets.nonSuper.p1NonSuper2, "p1", "joint") +
+    nsGainOwned(assets.nonSuper.p2NonSuper2, "p2", "joint") +
+    (assets.nonSuper.joint?.unrealisedGains || 0);
+  // Embedded gain can never exceed the pool's market value.
+  p1NSGain = Math.min(p1NSGain, Math.max(0, p1NonSuperBal));
+  p2NSGain = Math.min(p2NSGain, Math.max(0, p2NonSuperBal));
+  jointNSGain = Math.min(jointNSGain, Math.max(0, jointNonSuperBal));
+  // Single-person: no partner embedded gain (balances are already zeroed above).
+  if (!isCouple) p2NSGain = 0;
+
+  // Carried-forward capital losses offset realised gains BEFORE the CGT discount.
+  let p1LossCF = income.person1.capitalLossesCarriedForward || 0;
+  let p2LossCF = isCouple ? (income.person2.capitalLossesCarriedForward || 0) : 0;
+
+  // Gains realised in the PRIOR year, assessed in the CURRENT year (one-FY lag).
+  // Seeded at 0 — nothing is realised before the projection starts.
+  let p1PriorRealisedGain = 0;
+  let p2PriorRealisedGain = 0;
+
+  // The 50% CGT discount applies to long-held assets when enabled (the holding-
+  // period RULES themselves are out of scope; this is the existing toggle).
+  const cgtDiscountFactor = ((state.taxSettings || {}).capitalGainsDiscountAfter12m ?? true) ? 0.5 : 1;
+
+  // Weighted growth-only return for a non-super profile (mirrors the super engine).
+  const profileGrowthRate = (profileName) => {
+    const alloc = returnProfiles[resolveProfileKey(profileName)] || returnProfiles["G60"] || {};
+    return Object.entries(alloc).reduce((s, [k, w]) => s + (assetReturns[k]?.growth || 0) * w, 0);
+  };
+
+  // Apply carried-forward losses to a realised gross gain, then the CGT discount.
+  // Losses reduce the GROSS gain before the discount (ITAA 1997 s.102-5).
+  const assessCapitalGain = (grossGain, lossCF) => {
+    const g = Math.max(0, grossGain);
+    const lossUsed = Math.min(Math.max(0, lossCF), g);
+    return { taxableGain: (g - lossUsed) * cgtDiscountFactor, lossRemaining: Math.max(0, lossCF - lossUsed) };
+  };
+
   // Cashflow management: cash buffer account (earns cash rate when positive) and
   // a debt account (interest = cash rate + margin). The user-configurable rules
   // dictate the surplus destination and the order in which deficits are funded.
@@ -198,10 +257,25 @@ export function runProjection(state, useRandomReturns = false, seed = 0) {
     const p2Salary = (isCouple && isP2Working) ? (income.person2.salary || 0) * Math.pow(1 + salaryGrowth, y) : 0;
 
     // Super contributions
-    const p1SG = p1Salary * legislation.superParams.sgRate;
-    const p2SG = p2Salary * legislation.superParams.sgRate;
+    // SG default: paid on FULL salary. Optional per-person override (capSGAtBase) caps the
+    // SG base at the maximum super contribution base (MSCB × 4 quarters) — the legal minimum
+    // an employer must pay. Use ?? so a blank/0 MSCB doesn't silently zero SG.
+    const mscbAnnual = (legislation.superParams.maxSuperContribBase ?? Infinity) * 4;
+    const p1SGBase = income.person1.capSGAtBase ? Math.min(p1Salary, mscbAnnual) : p1Salary;
+    const p2SGBase = (isCouple && income.person2.capSGAtBase) ? Math.min(p2Salary, mscbAnnual) : p2Salary;
+    const p1SG = p1SGBase * legislation.superParams.sgRate;
+    const p2SG = p2SGBase * legislation.superParams.sgRate;
     const p1SalSac = isP1Working ? (income.person1.salarySacrifice || 0) : 0;
     const p2SalSac = (isCouple && isP2Working) ? (income.person2.salarySacrifice || 0) : 0;
+
+    // Concessional (before-tax) contribution totals + excess over the cap. Excess is taxed
+    // at the person's marginal rate (less a 15% offset) in the tax section below and is
+    // EXCLUDED from the Division 293 base. p2 gated by isCouple (single-person invariant).
+    const concessionalCap = legislation.superParams.concessionalCap ?? 30000;
+    const p1Concessional = p1SG + p1SalSac + (income.person1.personalDeductibleSuper ?? 0);
+    const p2Concessional = isCouple ? (p2SG + p2SalSac + (income.person2.personalDeductibleSuper ?? 0)) : 0;
+    const p1ExcessConcessional = Math.max(0, p1Concessional - concessionalCap);
+    const p2ExcessConcessional = Math.max(0, p2Concessional - concessionalCap);
 
     // Generate this year's asset class returns (same across all pools for consistency)
     const classReturns = getAssetClassReturns(useRandomReturns);
@@ -405,7 +479,23 @@ export function runProjection(state, useRandomReturns = false, seed = 0) {
     const p1DrawTaxable = p1AccType === "ttr"
       ? p1PensionDraw
       : (age1 >= 60 ? 0 : p1PensionDraw * 0.85);
-    const p1Taxable = Math.max(0, p1Salary - p1SalSac + (income.person1.otherTaxable || 0) + (income.person1.rentalIncome || 0) + p1DrawTaxable + p1GrossedDiv - p1DeductibleInterest);
+    // ---- CGT assessed this year on LAST year's realised non-super gains (one-FY lag) ----
+    // Carried-forward losses apply first, then the 50% discount; the result is added to
+    // assessable income below, so it flows through Medicare, the MLS family-income test
+    // and every other income test exactly like other income. Assessed for BOTH people
+    // up front so the MLS family-income basis stays symmetric.
+    const p1CGAssessed = assessCapitalGain(p1PriorRealisedGain, p1LossCF);
+    const p1TaxableCapitalGain = p1CGAssessed.taxableGain;
+    p1LossCF = p1CGAssessed.lossRemaining;
+    let p2TaxableCapitalGain = 0;
+    if (isCouple) {
+      const p2CGAssessed = assessCapitalGain(p2PriorRealisedGain, p2LossCF);
+      p2TaxableCapitalGain = p2CGAssessed.taxableGain;
+      p2LossCF = p2CGAssessed.lossRemaining;
+    }
+    // Personal deductible super contributions reduce assessable income (ITAA 1997 s.290-150).
+    const p1PersonalDeductible = income.person1.personalDeductibleSuper || 0;
+    const p1Taxable = Math.max(0, p1Salary - p1SalSac + (income.person1.otherTaxable || 0) + (income.person1.rentalIncome || 0) + p1DrawTaxable + p1GrossedDiv - p1DeductibleInterest - p1PersonalDeductible + p1TaxableCapitalGain);
 
     // Pre-compute the symmetric p2 taxable + MLS-income basis so both spouses see
     // the same family MLS income (no estimated/asymmetric branch).
@@ -420,18 +510,48 @@ export function runProjection(state, useRandomReturns = false, seed = 0) {
       p2FrankingCreditPre = p2CashDivPre * p2FrankingPctPre * (corporateTaxRate / (1 - corporateTaxRate));
       const p2GrossedDivPre = p2CashDivPre + p2FrankingCreditPre;
       p2DrawTaxablePre = p2AccType === "ttr" ? p2PensionDraw : (age2 >= 60 ? 0 : p2PensionDraw * 0.85);
-      p2TaxablePre = Math.max(0, p2Salary - p2SalSac + (income.person2.otherTaxable || 0) + (income.person2.rentalIncome || 0) + p2DrawTaxablePre + p2GrossedDivPre - p2DeductibleInterest);
+      p2TaxablePre = Math.max(0, p2Salary - p2SalSac + (income.person2.otherTaxable || 0) + (income.person2.rentalIncome || 0) + p2DrawTaxablePre + p2GrossedDivPre - p2DeductibleInterest - (income.person2.personalDeductibleSuper || 0) + p2TaxableCapitalGain);
     }
     const p1ReportableExtras = (income.person1.reportableFringeBenefits || 0) + (income.person1.salarySacrifice || 0);
     const p2ReportableExtras = isCouple ? ((income.person2.reportableFringeBenefits || 0) + (income.person2.salarySacrifice || 0)) : 0;
     const illnessSeparated = !!personal.illnessSeparated;
-    const p1TaxResult = calcPersonTax({ taxable: p1Taxable, frankingCredit: p1FrankingCredit, age: age1, isCouple, illnessSeparated, hasPrivateHealth, dependents, reportableExtras: p1ReportableExtras, partnerMLSIncome: p2TaxablePre + p2ReportableExtras, legislation, taxSettings });
+    const p1TaxResult = calcPersonTax({ taxable: p1Taxable, rebateIncome: p1Taxable + p1ReportableExtras + p1PersonalDeductible, frankingCredit: p1FrankingCredit, age: age1, isCouple, illnessSeparated, hasPrivateHealth, dependents, reportableExtras: p1ReportableExtras, partnerMLSIncome: p2TaxablePre + p2ReportableExtras, legislation, taxSettings });
     const p1IncomeTax = p1TaxResult.incomeTaxAfterOffsets;
     const p1Medicare = p1TaxResult.medicare;
-    const p1Tax = p1TaxResult.totalTax; // may be negative when franking refund exceeds tax
     const p1LITO = p1TaxResult.lito || 0;
     const p1SAPTO = p1TaxResult.sapto || 0;
-    const p1NetIncome = p1Salary - p1SalSac - p1Tax + (income.person1.taxFreeIncome || 0) + (income.person1.otherTaxable || 0) + (income.person1.rentalIncome || 0) + p1CashDiv;
+    // Excess concessional contributions are added to assessable income at the marginal rate,
+    // less a 15% offset for the contributions tax the fund already paid (ITAA 1997 Div 291).
+    const brackets = legislation.taxBrackets || [];
+    const p1ExcessConcessionalTax = p1ExcessConcessional > 0
+      ? Math.max(0, calcIncomeTax(p1Taxable + p1ExcessConcessional, brackets) - calcIncomeTax(p1Taxable, brackets) - p1ExcessConcessional * (legislation.superParams.taxRate ?? 0.15))
+      : 0;
+    // Spouse contribution tax offset — non-refundable: capped at income tax payable (s.290-235).
+    const p1SpouseOffset = isCouple
+      ? Math.min(calcSpouseOffset(income.person1.spouseContributionSuper ?? 0, p2TaxablePre + p2ReportableExtras, legislation.superParams), p1IncomeTax)
+      : 0;
+    // Government super additions (paid INTO super in the balance section below).
+    const p1CoContribution = (p1Salary > 0 && age1 < 71)
+      ? calcCoContribution(income.person1.nonConcessionalSuper ?? 0, p1Taxable + p1ReportableExtras, legislation.superParams)
+      : 0;
+    const p1LISTO = calcLISTO(p1Concessional, p1Taxable + p1ReportableExtras, legislation.superParams);
+    // Spouse contribution offset is NON-refundable (s.290-235): it can reduce income tax to
+    // zero but must never enlarge a refundable franking-credit refund. So apply it to income
+    // tax (floored at zero), then add Medicare, then net the refundable franking credit —
+    // mirroring calcPersonTax's order so franking still refunds, but only against real tax.
+    const allowFrankingRefund = (taxSettings.frankingRefundEnabled !== false);
+    const p1IncomeTaxAfterSpouse = Math.max(0, p1IncomeTax - p1SpouseOffset);
+    const p1TaxBeforeFranking = p1IncomeTaxAfterSpouse + p1Medicare;
+    const p1TaxAfterFranking = allowFrankingRefund
+      ? p1TaxBeforeFranking - p1FrankingCredit          // can go negative = cash refund
+      : Math.max(0, p1TaxBeforeFranking - p1FrankingCredit);
+    // Excess-concessional tax is an additional liability, not reduced by franking credits.
+    const p1Tax = p1TaxAfterFranking + p1ExcessConcessionalTax;
+    // Net (take-home) cashflow: subtract personal super contributions made from after-tax
+    // cash (deductible personal + non-concessional + own spouse contribution). Salary sacrifice
+    // is already removed above (it never reaches take-home pay). Not subtracting these
+    // double-counted the money — it appeared both as spendable surplus AND inside the super balance.
+    const p1NetIncome = p1Salary - p1SalSac - p1Tax + (income.person1.taxFreeIncome || 0) + (income.person1.otherTaxable || 0) + (income.person1.rentalIncome || 0) + p1CashDiv - (income.person1.personalDeductibleSuper || 0) - (income.person1.nonConcessionalSuper || 0) - (isCouple ? (income.person1.spouseContributionSuper || 0) : 0);
 
     let p2NetIncome = 0;
     let p2IncomeTax = 0;
@@ -441,16 +561,34 @@ export function runProjection(state, useRandomReturns = false, seed = 0) {
     let p2LITO = 0;
     let p2SAPTO = 0;
     let p2Div293 = 0;
+    let p2ExcessConcessionalTax = 0;
+    let p2SpouseOffset = 0;
+    let p2CoContribution = 0;
+    let p2LISTO = 0;
     if (isCouple) {
       // Reuse pre-computed p2 basis so family MLS is symmetric with p1's view.
       p2Taxable = p2TaxablePre;
-      const p2TaxResult = calcPersonTax({ taxable: p2Taxable, frankingCredit: p2FrankingCreditPre, age: age2, isCouple, illnessSeparated, hasPrivateHealth, dependents, reportableExtras: p2ReportableExtras, partnerMLSIncome: p1Taxable + p1ReportableExtras, legislation, taxSettings });
+      const p2TaxResult = calcPersonTax({ taxable: p2Taxable, rebateIncome: p2Taxable + p2ReportableExtras + (income.person2.personalDeductibleSuper || 0), frankingCredit: p2FrankingCreditPre, age: age2, isCouple, illnessSeparated, hasPrivateHealth, dependents, reportableExtras: p2ReportableExtras, partnerMLSIncome: p1Taxable + p1ReportableExtras, legislation, taxSettings });
       p2IncomeTax = p2TaxResult.incomeTaxAfterOffsets;
       p2Medicare = p2TaxResult.medicare;
-      p2Tax = p2TaxResult.totalTax;
       p2LITO = p2TaxResult.lito || 0;
       p2SAPTO = p2TaxResult.sapto || 0;
-      p2NetIncome = p2Salary - p2SalSac - p2Tax + (income.person2.taxFreeIncome || 0) + (income.person2.otherTaxable || 0) + (income.person2.rentalIncome || 0) + p2CashDivPre;
+      p2ExcessConcessionalTax = p2ExcessConcessional > 0
+        ? Math.max(0, calcIncomeTax(p2Taxable + p2ExcessConcessional, brackets) - calcIncomeTax(p2Taxable, brackets) - p2ExcessConcessional * (legislation.superParams.taxRate ?? 0.15))
+        : 0;
+      p2SpouseOffset = Math.min(calcSpouseOffset(income.person2.spouseContributionSuper ?? 0, p1Taxable + p1ReportableExtras, legislation.superParams), p2IncomeTax);
+      p2CoContribution = (p2Salary > 0 && age2 < 71)
+        ? calcCoContribution(income.person2.nonConcessionalSuper ?? 0, p2Taxable + p2ReportableExtras, legislation.superParams)
+        : 0;
+      p2LISTO = calcLISTO(p2Concessional, p2Taxable + p2ReportableExtras, legislation.superParams);
+      // Same non-refundable spouse-offset ordering as person 1 (see note above).
+      const p2IncomeTaxAfterSpouse = Math.max(0, p2IncomeTax - p2SpouseOffset);
+      const p2TaxBeforeFranking = p2IncomeTaxAfterSpouse + p2Medicare;
+      const p2TaxAfterFranking = (taxSettings.frankingRefundEnabled !== false)
+        ? p2TaxBeforeFranking - p2FrankingCreditPre
+        : Math.max(0, p2TaxBeforeFranking - p2FrankingCreditPre);
+      p2Tax = p2TaxAfterFranking + p2ExcessConcessionalTax;
+      p2NetIncome = p2Salary - p2SalSac - p2Tax + (income.person2.taxFreeIncome || 0) + (income.person2.otherTaxable || 0) + (income.person2.rentalIncome || 0) + p2CashDivPre - (income.person2.personalDeductibleSuper || 0) - (income.person2.nonConcessionalSuper || 0) - (income.person2.spouseContributionSuper || 0);
     }
 
     // Super tax on contributions (15% contributions tax)
@@ -514,8 +652,12 @@ export function runProjection(state, useRandomReturns = false, seed = 0) {
 
     // P1 Super
     const p1SuperGrown = growPool(p1SuperH, superProfile, classReturns, p1SuperCostRate);
-    const p1SuperContribs = p1SG + p1SalSac + (income.person1.personalDeductibleSuper || 0) + (income.person1.nonConcessionalSuper || 0);
-    p1SuperBal = p1SuperGrown.total + p1SuperContribs - p1PensionDraw;
+    // Spouse contributions made BY the partner flow into THIS person's super (non-concessional).
+    const p1SpouseContribReceived = isCouple ? (income.person2.spouseContributionSuper || 0) : 0;
+    const p1SuperContribs = p1SG + p1SalSac + (income.person1.personalDeductibleSuper || 0) + (income.person1.nonConcessionalSuper || 0) + p1SpouseContribReceived;
+    // Deduct the 15% contributions tax (Div 290) on concessional contributions from the
+    // balance. It was previously computed for reporting but never removed, overstating super.
+    p1SuperBal = p1SuperGrown.total + p1SuperContribs - p1PensionDraw - p1SuperContribTax;
 
     const p1ConvYear = assets.superAccounts.p1Super?.pensionConversionYear;
     const p1IsPartial = assets.superAccounts.p1Super?.pensionConversionType === "partial";
@@ -552,10 +694,20 @@ export function runProjection(state, useRandomReturns = false, seed = 0) {
       p1SuperBal -= (incomeTax + cgt);
     }
 
-    // Division 293: extra 15% on concessional contributions if income > $250k
-    const p1Div293 = (p1Salary + (income.person1.otherTaxable || 0)) > (legislation.superParams.div293Threshold || 250000)
-      ? (p1SG + p1SalSac) * (legislation.superParams.div293Rate || 0.15) : 0;
+    // Division 293: extra 15% on low-tax (concessional) contributions when Division 293
+    // income exceeds the threshold ($250k). Div293 income = taxable income + reportable
+    // fringe benefits + low-tax contributions (concessional contributions capped at the
+    // concessional cap — excess concessional is excluded here because it is already taxed
+    // at marginal rates). The surcharge applies only to the lesser of the low-tax
+    // contributions and the amount of income above the threshold (ATO Div 293 method).
+    const div293Threshold = legislation.superParams.div293Threshold || 250000;
+    const div293Rate = legislation.superParams.div293Rate || 0.15;
+    const p1LowTaxContrib = Math.min(p1Concessional, concessionalCap);
+    const p1Div293Income = p1Taxable + (income.person1.reportableFringeBenefits || 0) + p1LowTaxContrib;
+    const p1Div293 = Math.max(0, Math.min(p1LowTaxContrib, p1Div293Income - div293Threshold)) * div293Rate;
     p1SuperBal -= p1Div293;
+    // Government super additions: co-contribution + LISTO (received after year-end; no growth this year).
+    p1SuperBal += p1CoContribution + p1LISTO;
     p1SuperH = initHoldings(p1SuperBal, superProfile);
 
     // P2 Super
@@ -563,8 +715,9 @@ export function runProjection(state, useRandomReturns = false, seed = 0) {
     if (isCouple) {
       const p2Profile = resolveProfileKey(assets.superAccounts.p2Super?.profile || superProfile);
       p2SuperGrown = growPool(p2SuperH, p2Profile, classReturns, p2SuperCostRate);
-      const p2SuperContribs = p2SG + p2SalSac + (income.person2.personalDeductibleSuper || 0) + (income.person2.nonConcessionalSuper || 0);
-      p2SuperBal = p2SuperGrown.total + p2SuperContribs - p2PensionDraw;
+      const p2SpouseContribReceived = income.person1.spouseContributionSuper || 0;
+      const p2SuperContribs = p2SG + p2SalSac + (income.person2.personalDeductibleSuper || 0) + (income.person2.nonConcessionalSuper || 0) + p2SpouseContribReceived;
+      p2SuperBal = p2SuperGrown.total + p2SuperContribs - p2PensionDraw - p2SuperContribTax;
 
       const p2ConvYear = assets.superAccounts.p2Super?.pensionConversionYear;
       const p2IsPartial = assets.superAccounts.p2Super?.pensionConversionType === "partial";
@@ -589,9 +742,11 @@ export function runProjection(state, useRandomReturns = false, seed = 0) {
         const cgt2 = (p2IsConversionYear || p2AccType === "ttr") ? 0 : p2SuperBal * p2GrowthRet * 0.10;
         p2SuperBal -= (incomeTax2 + cgt2);
       }
-      p2Div293 = (p2Salary + (income.person2?.otherTaxable || 0)) > (legislation.superParams.div293Threshold || 250000)
-        ? (p2SG + p2SalSac) * (legislation.superParams.div293Rate || 0.15) : 0;
+      const p2LowTaxContrib = Math.min(p2Concessional, concessionalCap);
+      const p2Div293Income = p2Taxable + (income.person2.reportableFringeBenefits || 0) + p2LowTaxContrib;
+      p2Div293 = Math.max(0, Math.min(p2LowTaxContrib, p2Div293Income - div293Threshold)) * div293Rate;
       p2SuperBal -= p2Div293;
+      p2SuperBal += p2CoContribution + p2LISTO;
       p2SuperH = initHoldings(p2SuperBal, p2Profile);
     }
 
@@ -604,26 +759,38 @@ export function runProjection(state, useRandomReturns = false, seed = 0) {
     const p2PropCosts = (isCouple && assets.nonSuper.p2NonSuper?.isDirectProperty) ? ((assets.nonSuper.p2NonSuper?.councilRates || 0) + (assets.nonSuper.p2NonSuper?.propertyInsurance || 0) + (p2NonSuperBal * (assets.nonSuper.p2NonSuper?.agentFee || 0) / 100) + (assets.nonSuper.p2NonSuper?.repairs || 0)) : 0;
     const jointPropCosts = assets.nonSuper.joint?.isDirectProperty ? ((assets.nonSuper.joint?.councilRates || 0) + (assets.nonSuper.joint?.propertyInsurance || 0) + (jointNonSuperBal * (assets.nonSuper.joint?.agentFee || 0) / 100) + (assets.nonSuper.joint?.repairs || 0)) : 0;
 
+    const p1NSPre = Math.max(0, p1NonSuperBal);
     const p1NSGrown = growPool(p1NonSuperH, p1NSProfile, classReturns, p1NSCostRate);
     p1NonSuperBal = p1NSGrown.total - p1PropCosts;
+    // Accrue only the GROWTH portion of this year's return into the embedded gain,
+    // then clamp so it never exceeds the post-cost balance.
+    p1NSGain = Math.min(Math.max(0, p1NSGain + p1NSPre * profileGrowthRate(p1NSProfile)), Math.max(0, p1NonSuperBal));
     p1NonSuperH = initHoldings(Math.max(0, p1NonSuperBal), p1NSProfile);
 
     // P2 non-super: only process when couple. Single-person scenarios keep p2NonSuperBal at 0.
     let p2NSGrown = { total: 0, holdings: {} };
     if (isCouple) {
+      const p2NSPre = Math.max(0, p2NonSuperBal);
       p2NSGrown = growPool(p2NonSuperH, p2NSProfile, classReturns, p2NSCostRate);
       p2NonSuperBal = p2NSGrown.total - p2PropCosts;
+      p2NSGain = Math.min(Math.max(0, p2NSGain + p2NSPre * profileGrowthRate(p2NSProfile)), Math.max(0, p2NonSuperBal));
       p2NonSuperH = initHoldings(Math.max(0, p2NonSuperBal), p2NSProfile);
     }
 
+    const jointNSPre = Math.max(0, jointNonSuperBal);
     const jointGrown = growPool(jointNonSuperH, nonSuperProfile, classReturns, jointCostRate);
     jointNonSuperBal = jointGrown.total - jointPropCosts;
+    jointNSGain = Math.min(Math.max(0, jointNSGain + jointNSPre * profileGrowthRate(nonSuperProfile)), Math.max(0, jointNonSuperBal));
 
     // === Cashflow waterfall ===
     // 1) Accrue interest on cash (if positive) and on the debt account.
     //    Cash earns the cash rate only when in credit; debt always accrues at cash rate + margin.
     if (cashAccount > 0) cashAccount = cashAccount * (1 + cashRate);
     if (debtAccount > 0) debtAccount = debtAccount * (1 + debtRate);
+
+    // Capital gains realised THIS year by drawdowns/sales, accumulated across all
+    // funding events; split to owners at year-end and assessed next FY.
+    let p1RealisedThisYear = 0, p2RealisedThisYear = 0, jointRealisedThisYear = 0;
 
     // Helpers for spreading deposits/withdrawals across the non-super pools
     // proportionally (so couples keep their balance split intact).
@@ -633,6 +800,23 @@ export function runProjection(state, useRandomReturns = false, seed = 0) {
       if (total <= 0 || amount <= 0) return amount;
       const take = Math.min(amount, total);
       const ratio = take / total;
+      // Realise a proportional slice of each pool's embedded gain as it is drawn:
+      // the same fraction of the balance withdrawn carries the same fraction of that
+      // pool's unrealised gain into a realised gain for this year.
+      const realiseFrom = (bal, gain) => {
+        if (bal <= 0) return { gain, realised: 0 };
+        const frac = Math.min(1, Math.max(0, gain / bal));
+        const realised = bal * ratio * frac;
+        return { gain: Math.max(0, gain - realised), realised };
+      };
+      const jr = realiseFrom(Math.max(0, jointNonSuperBal), jointNSGain);
+      jointNSGain = jr.gain; jointRealisedThisYear += jr.realised;
+      const p1r = realiseFrom(Math.max(0, p1NonSuperBal), p1NSGain);
+      p1NSGain = p1r.gain; p1RealisedThisYear += p1r.realised;
+      if (isCouple) {
+        const p2r = realiseFrom(Math.max(0, p2NonSuperBal), p2NSGain);
+        p2NSGain = p2r.gain; p2RealisedThisYear += p2r.realised;
+      }
       jointNonSuperBal -= Math.max(0, jointNonSuperBal) * ratio;
       p1NonSuperBal   -= Math.max(0, p1NonSuperBal)   * ratio;
       if (isCouple) p2NonSuperBal -= Math.max(0, p2NonSuperBal) * ratio;
@@ -741,6 +925,22 @@ export function runProjection(state, useRandomReturns = false, seed = 0) {
     // TODAY'S-DOLLAR value. The nominal version is preserved under `__nominal` for
     // debugging and any internal tools that genuinely need it, but no UI consumer
     // should read those.
+    // Split this year's realised non-super gains to owners (joint 50/50 for couples,
+    // all to P1 when single) and carry them into NEXT year's CGT assessment (one-FY lag).
+    const p1RealisedCapitalGain = p1RealisedThisYear + jointRealisedThisYear * (isCouple ? 0.5 : 1);
+    const p2RealisedCapitalGain = isCouple ? (p2RealisedThisYear + jointRealisedThisYear * 0.5) : 0;
+    p1PriorRealisedGain = p1RealisedCapitalGain;
+    p2PriorRealisedGain = p2RealisedCapitalGain;
+    // Income tax attributable to THIS year's assessed capital gain — already part of
+    // totalTax via p1Taxable/p2Taxable; surfaced separately for display only.
+    const cgtBrackets = legislation.taxBrackets || [];
+    const p1CapitalGainsTax = p1TaxableCapitalGain > 0
+      ? Math.max(0, calcIncomeTax(p1Taxable, cgtBrackets) - calcIncomeTax(Math.max(0, p1Taxable - p1TaxableCapitalGain), cgtBrackets))
+      : 0;
+    const p2CapitalGainsTax = (isCouple && p2TaxableCapitalGain > 0)
+      ? Math.max(0, calcIncomeTax(p2Taxable, cgtBrackets) - calcIncomeTax(Math.max(0, p2Taxable - p2TaxableCapitalGain), cgtBrackets))
+      : 0;
+
     const nominalRow = {
       year, age1, age2, period: y + 1,
       // ── Income components (gross, before tax) ──
@@ -759,6 +959,18 @@ export function runProjection(state, useRandomReturns = false, seed = 0) {
       p1Taxable, p2Taxable, p1IncomeTax, p2IncomeTax, p1Medicare, p2Medicare, p1Tax, p2Tax,
       p1LITO, p2LITO, p1SAPTO, p2SAPTO,
       p1Div293, p2Div293,
+      // ── Concessional / super offsets ──
+      p1Concessional, p2Concessional, p1ExcessConcessional, p2ExcessConcessional,
+      p1ExcessConcessionalTax, p2ExcessConcessionalTax,
+      p1CoContribution, p2CoContribution, p1LISTO, p2LISTO, p1SpouseOffset, p2SpouseOffset,
+      // ── Non-super capital gains ──
+      p1RealisedCapitalGain, p2RealisedCapitalGain,
+      p1TaxableCapitalGain, p2TaxableCapitalGain,
+      p1CapitalGainsTax, p2CapitalGainsTax,
+      p1CapitalLossesCarriedForward: p1LossCF, p2CapitalLossesCarriedForward: p2LossCF,
+      totalRealisedCapitalGain: p1RealisedCapitalGain + p2RealisedCapitalGain,
+      totalTaxableCapitalGain: p1TaxableCapitalGain + p2TaxableCapitalGain,
+      totalCapitalGainsTax: p1CapitalGainsTax + p2CapitalGainsTax,
       p1SuperContribTax, p2SuperContribTax, totalTax, totalSuperTax,
       // ── Totals ──
       totalIncome: totalNetIncome, totalExpenses: totalExp + liabilityPayments,
