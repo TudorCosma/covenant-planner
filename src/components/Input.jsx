@@ -38,14 +38,22 @@ export function Input({ label, value, onChange, type = "number", prefix, suffix,
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }} className={className}>
       {label && <label style={{ color: COLORS.textMuted, fontSize: small ? 11 : 12, fontFamily: "'DM Sans', sans-serif" }}>{label}</label>}
-      <div style={{ display: "flex", flexDirection: "row", alignItems: "center", background: COLORS.inputBg, border: `1px solid ${COLORS.inputBorder}`, borderRadius: 6, overflow: "hidden", boxShadow: "inset 0 1px 2px rgba(0,0,0,0.06)" }}>
+      <div style={{ display: "flex", flexDirection: "row", alignItems: "center", background: COLORS.inputBg, border: `1px solid ${COLORS.inputBorder}`, borderRadius: COLORS.radiusSm ?? 6, overflow: "hidden", boxShadow: COLORS.inputShadow ?? "inset 0 1px 2px rgba(0,0,0,0.06)" }}>
         {prefix && <span style={{ padding: "6px 0 6px 10px", color: COLORS.textDim, fontSize: small ? 12 : 13, fontFamily: "'JetBrains Mono', monospace", whiteSpace: "nowrap", flexShrink: 0 }}>{prefix}</span>}
         <input
           type={type === "number" ? "text" : type}
           inputMode={type === "number" ? "decimal" : undefined}
           value={localVal}
           onChange={handleChange}
-          onFocus={() => setFocused(true)}
+          onFocus={(e) => {
+            setFocused(true);
+            // Select-all on focus so a stray "0" placeholder (very common now that
+            // DEFAULT_STATE is blank) is replaced the instant the user starts typing.
+            // Without this, users have to manually backspace the 0 first — frustrating
+            // on mobile especially. defer to next tick so iOS keyboards behave.
+            const el = e.target;
+            setTimeout(() => { try { el.select(); } catch {} }, 0);
+          }}
           onBlur={handleBlur}
           style={{
             background: "transparent", border: "none", outline: "none", color: COLORS.inputText || COLORS.text,

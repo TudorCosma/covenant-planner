@@ -3,8 +3,8 @@ import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, Cartesia
 import { COLORS, THEMES } from "../data/themes";
 import { TABS } from "../data/tabs";
 import { ASSET_LABELS, DEFAULT_RETURN_PROFILES, DEFAULT_ASSET_RETURNS } from "../data/returnProfiles";
-import { Input, DateInput, FYInput, Select, Card, StatCard, Btn, Modal, HeaderBtn, ScenarioToggle, ReturnSummary, FinancialAssistant } from "../components";
-import { fmt, pct, calcIncomeTax, calcMedicare, boxMullerRandom, calcDeprivedAssets, calcCentrelinkPension, calcDeemedIncome, getMonthlyEquiv, calcLoanPayoff, runProjection } from "../lib";
+import { Input, DateInput, FYInput, YearSelect, Select, Card, StatCard, Btn, Modal, HeaderBtn, ScenarioToggle, ReturnSummary, FinancialAssistant } from "../components";
+import { fmt, pct, calcIncomeTax, calcMedicare, boxMullerRandom, calcDeprivedAssets, computeGiftLedger, calcCentrelinkPension, calcDeemedIncome, getMonthlyEquiv, calcLoanPayoff, runProjection } from "../lib";
 export function ExpensesTab({ state, setState, scenario, onActivateAfter, onActivateNow, onResetAfter, afterState }) {
   const { expenses, personal } = state;
   const currentYear = new Date().getFullYear();
@@ -34,6 +34,11 @@ export function ExpensesTab({ state, setState, scenario, onActivateAfter, onActi
   const rmGift = (i) => setState(s => ({ ...s, gifts: (s.gifts || []).filter((_, j) => j !== i) }));
   const centrelink = state.legislation?.centrelink || {};
   const freePerYear = centrelink.giftingFreeAreaPerYear || 10000;
+  const freeOverWindow = centrelink.giftingFreeAreaFiveYear || 30000;
+  // Cumulative deprivation ledger — applies the annual AND rolling 5-year caps
+  // together, in date order, so once the rolling pool is exhausted later gifts
+  // are fully deprived even when under the annual limit.
+  const giftLedger = computeGiftLedger(gifts, centrelink, currentYear);
 
   return (
     <div>
@@ -55,8 +60,8 @@ export function ExpensesTab({ state, setState, scenario, onActivateAfter, onActi
               <Input label="Annual Amount" value={e.amount} onChange={(v) => updLifestyleExp(i, "amount", v)} prefix="$" />
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, alignItems: "end" }}>
-              <FYInput label="From FY" value={e.startYear} onChange={(v) => updLifestyleExp(i, "startYear", v)} />
-              <FYInput label="To FY" value={e.endYear} onChange={(v) => updLifestyleExp(i, "endYear", v)} />
+              <YearSelect label="From FY" value={e.startYear} onChange={(v) => updLifestyleExp(i, "startYear", v)} personal={personal} />
+              <YearSelect label="To FY" value={e.endYear} onChange={(v) => updLifestyleExp(i, "endYear", v)} personal={personal} />
             </div>
             <Input label="Indexation" value={e.indexation} onChange={(v) => updLifestyleExp(i, "indexation", v)} suffix="%" />
           </div>
@@ -76,8 +81,8 @@ export function ExpensesTab({ state, setState, scenario, onActivateAfter, onActi
               <Input label="Annual Amount" value={e.amount} onChange={(v) => updBase(i, "amount", v)} prefix="$" />
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, alignItems: "end" }}>
-              <FYInput label="From FY" value={e.startYear} onChange={(v) => updBase(i, "startYear", v)} />
-              <FYInput label="To FY" value={e.endYear} onChange={(v) => updBase(i, "endYear", v)} />
+              <YearSelect label="From FY" value={e.startYear} onChange={(v) => updBase(i, "startYear", v)} personal={personal} />
+              <YearSelect label="To FY" value={e.endYear} onChange={(v) => updBase(i, "endYear", v)} personal={personal} />
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, alignItems: "end" }}>
               <Select label="Type" value={e.type} onChange={(v) => updBase(i, "type", v)} small options={[{ value: "essential", label: "Essential" }, { value: "desirable", label: "Desirable" }]} />
@@ -106,8 +111,8 @@ export function ExpensesTab({ state, setState, scenario, onActivateAfter, onActi
               <Input label="Amount" value={e.amount} onChange={(v) => updFuture(i, "amount", v)} prefix="$" />
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, alignItems: "end" }}>
-              <FYInput label="From FY" value={e.startYear} onChange={(v) => updFuture(i, "startYear", v)} />
-              <FYInput label="To FY" value={e.endYear} onChange={(v) => updFuture(i, "endYear", v)} />
+              <YearSelect label="From FY" value={e.startYear} onChange={(v) => updFuture(i, "startYear", v)} personal={personal} />
+              <YearSelect label="To FY" value={e.endYear} onChange={(v) => updFuture(i, "endYear", v)} personal={personal} />
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, alignItems: "end" }}>
               <Select label="Type" value={e.type} onChange={(v) => updFuture(i, "type", v)} small options={[{ value: "essential", label: "Essential" }, { value: "desirable", label: "Desirable" }]} />
@@ -126,14 +131,14 @@ export function ExpensesTab({ state, setState, scenario, onActivateAfter, onActi
           💡 If already receiving the <strong>full Age Pension</strong>, deprivation rules are irrelevant — gifting of any amount cannot reduce the pension below the maximum rate.
         </div>
         {gifts.map((g, i) => {
-          const giftDate = g.date ? new Date(g.date) : new Date(`${g.year || currentYear}-07-01`);
-          const expiryDate = new Date(giftDate);
-          expiryDate.setFullYear(expiryDate.getFullYear() + 5);
+          const entry = giftLedger[i] || {};
+          const expiryDate = entry.expiryDate || new Date();
           const expired = new Date() >= expiryDate;
           const daysLeft = Math.max(0, Math.ceil((expiryDate - new Date()) / (1000 * 60 * 60 * 24)));
           const yearsLeft = Math.floor(daysLeft / 365);
           const monthsLeft = Math.ceil((daysLeft % 365) / 30);
-          const deprived = Math.max(0, (g.amount || 0) - freePerYear);
+          const deprived = entry.deprivedAtGrant || 0;
+          const fullyDeprived = deprived > 0 && deprived >= (g.amount || 0) - 0.5;
           const expiryStr = expiryDate.toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
           return (
             <div key={i} style={{
@@ -152,18 +157,20 @@ export function ExpensesTab({ state, setState, scenario, onActivateAfter, onActi
                 <Input label="Amount" value={g.amount} onChange={(v) => updGift(i, "amount", v)} prefix="$" />
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, alignItems: "end" }}>
-                <DateInput label="Date of Gift (DD/MM/YYYY)" value={g.date || `${currentYear}-01-01`} onChange={(v) => updGift(i, "date", v)} />
+                <YearSelect label="Gift Financial Year" value={g.date || `${currentYear}-01-01`} onChange={(v) => updGift(i, "date", v)} personal={personal} mode="date" />
                 <Input label="Recipient" value={g.recipient} onChange={(v) => updGift(i, "recipient", v)} type="text" />
               </div>
               {!expired && deprived > 0 && (
                 <div style={{ marginTop: 6, padding: "6px 8px", background: `${COLORS.orange}15`, borderRadius: 6, fontSize: 10, color: COLORS.orange, fontFamily: "'DM Sans', sans-serif" }}>
-                  {fmt(deprived)} counted as a deprived asset until <strong>{expiryStr}</strong>.
+                  {fullyDeprived
+                    ? <><strong>Entire {fmt(g.amount)}</strong> counted as a deprived asset until <strong>{expiryStr}</strong> — your {fmt(freePerYear)}/yr and {fmt(freeOverWindow)}/5-yr exempt allowances were already used by earlier gifts, so none of this gift is exempt.</>
+                    : <>{fmt(deprived)} counted as a deprived asset until <strong>{expiryStr}</strong> ({fmt(entry.exempt || 0)} exempt).</>}
                   {(yearsLeft > 0 || monthsLeft > 0) && ` Clears in ${yearsLeft > 0 ? `${yearsLeft}y ` : ""}${monthsLeft > 0 ? `${monthsLeft}m` : ""}.`}
                 </div>
               )}
               {!expired && deprived === 0 && (g.amount || 0) > 0 && (
                 <div style={{ marginTop: 6, padding: "6px 8px", background: `${COLORS.green}15`, borderRadius: 6, fontSize: 10, color: COLORS.green, fontFamily: "'DM Sans', sans-serif" }}>
-                  {fmt(g.amount)} is within the annual exempt limit — reduces assessable assets immediately.
+                  {fmt(g.amount)} is within your remaining exempt allowance — reduces assessable assets immediately.
                 </div>
               )}
             </div>

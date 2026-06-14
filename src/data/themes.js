@@ -29,6 +29,14 @@ export const THEMES = {
     appTitle: "Australian Financial Planner",
     appSubtitle: "CASHFLOW · TAX · SUPER · CENTRELINK · MONTE CARLO",
     infoBg: "#ece8e1",
+    // Apple-only design tokens declared as undefined here so that switching away
+    // from the Apple theme via Object.assign(COLORS, ...) clears them and the
+    // primitives fall back to their original hardcoded values (no token leakage).
+    radius: undefined,
+    radiusSm: undefined,
+    radiusLg: undefined,
+    cardShadow: undefined,
+    inputShadow: undefined,
   },
   "Covenant Wealth": {
     name: "Covenant Wealth",
@@ -61,6 +69,54 @@ export const THEMES = {
     appTitle: "Covenant Wealth",
     appSubtitle: "RETIREMENT PLANNING · TAX · SUPER · CENTRELINK",
     infoBg: "#d7e2e1",
+    // Apple-only design tokens declared as undefined here so that switching away
+    // from the Apple theme via Object.assign(COLORS, ...) clears them and the
+    // primitives fall back to their original hardcoded values (no token leakage).
+    radius: undefined,
+    radiusSm: undefined,
+    radiusLg: undefined,
+    cardShadow: undefined,
+    inputShadow: undefined,
+  },
+  Apple: {
+    name: "Apple",
+    bg: "#f5f5f7",
+    card: "#ffffff",
+    cardHover: "#fbfbfd",
+    border: "#d2d2d7",
+    borderLight: "#e5e5ea",
+    text: "#1d1d1f",
+    textMuted: "#6e6e73",
+    textDim: "#86868b",
+    accent: "#0071e3",
+    accentLight: "#0a84ff",
+    accentDark: "#0058b9",
+    green: "#248a3d",
+    greenDark: "#1c6e30",
+    red: "#d70015",
+    orange: "#bf5700",
+    purple: "#5e5ce6",
+    pink: "#d30f45",
+    cyan: "#0b7c93",
+    inputBg: "#ffffff",
+    inputBorder: "#d2d2d7",
+    inputText: "#1d1d1f",
+    chartColors: ["#0071e3", "#34c759", "#ff9500", "#ff3b30", "#5e5ce6", "#ff2d55", "#30b0c7", "#ffcc00"],
+    headerBg: "#ffffff",
+    headerText: "#1d1d1f",
+    navBg: "#ffffff",
+    logoType: "icon",
+    appTitle: "Covenant Wealth",
+    appSubtitle: "RETIREMENT PLANNING · TAX · SUPER · CENTRELINK",
+    infoBg: "#eef1f6",
+    // Apple-only design tokens. Other themes leave these undefined and the
+    // primitives fall back to their original hardcoded values, so Default and
+    // Covenant Wealth render byte-for-byte unchanged.
+    radius: 18,
+    radiusSm: 10,
+    radiusLg: 22,
+    cardShadow: "0 4px 20px rgba(0,0,0,0.06)",
+    inputShadow: "none",
   },
 };
 

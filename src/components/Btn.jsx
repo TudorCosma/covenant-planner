@@ -8,7 +8,7 @@ export function Btn({ children, onClick, active, small, color = COLORS.accent, v
     <button
       onClick={onClick}
       style={{
-        background: bg, border: `1px solid ${border}`, borderRadius: 6, color: active ? "#fff" : COLORS.text, padding: small ? "4px 10px" : "7px 16px",
+        background: bg, border: `1px solid ${border}`, borderRadius: COLORS.radiusSm ?? 6, color: active ? "#fff" : COLORS.text, padding: small ? "4px 10px" : "7px 16px",
         fontSize: small ? 11 : 12, fontFamily: "'DM Sans', sans-serif", cursor: "pointer", fontWeight: 500, transition: "all 0.15s",
       }}
     >

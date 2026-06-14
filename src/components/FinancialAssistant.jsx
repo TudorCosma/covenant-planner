@@ -1,32 +1,38 @@
 import { useState, useEffect, useRef } from "react";
 import { COLORS } from "../data/themes";
-import { TAB_CONTEXTS, ADVICE_REFERRAL, KNOWLEDGE_BASE, findAnswer, QUICK_QUESTIONS, TAB_INTROS } from "../data/knowledgeBase";
+import { TAB_CONTEXTS, ADVICE_REFERRAL, KNOWLEDGE_BASE, findEducationalAnswer, QUICK_QUESTIONS, TAB_INTROS } from "../data/knowledgeBase";
+import { COVIE_INTRO, COVIE_DISCLAIMER, INPUT_MAX_WORDS, wordCount, isAdviceQuestion, pickRefusalLine, REFUSAL_ACTIONS } from "../lib/covieVoice";
+
+// Covie — the AI finance guide. Plain-English education + how-to-use-the-app.
+// Refuses prescriptive personal-advice questions via escalating tiers of refusal
+// lines, picked from src/lib/covieVoice.js. Maintains a session-only refusal
+// counter (no persistence) so each successive refusal feels fresh.
 
 export function FinancialAssistant({ tab }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
+  const [refusalCount, setRefusalCount] = useState(0);
   const messagesEndRef = useRef(null);
 
-  // Reset messages when tab changes or panel opens on a new tab
+  // Reset messages when tab changes; if open, show a short tab-context intro
   const prevTabRef = useRef(tab);
   useEffect(() => {
     if (tab !== prevTabRef.current) {
       prevTabRef.current = tab;
       setMessages([]);
-      // If panel is open, set new intro
       if (open) {
-        setMessages([{ role: "assistant", content: `${TAB_INTROS[tab] || "You switched tabs."}\n\nWhat would you like to understand about this section?` }]);
+        setMessages([{ role: "assistant", content: `You moved to ${TAB_CONTEXTS[tab] || "a new tab"}. ${TAB_INTROS[tab] || ""}\n\nAsk me anything about how this section works.` }]);
       }
     }
   }, [tab]);
 
-  // Show intro when panel opens
+  // Initial intro when panel opens
   useEffect(() => {
     if (open && messages.length === 0) {
       setMessages([{
         role: "assistant",
-        content: `Hi! I'm your financial literacy guide 👋\n\n${TAB_INTROS[tab] || ""}\n\nI can explain how anything here works in plain English — no jargon. What would you like to understand?`,
+        content: `${COVIE_INTRO}\n\n${TAB_INTROS[tab] || ""}`,
       }]);
     }
   }, [open]);
@@ -35,71 +41,133 @@ export function FinancialAssistant({ tab }) {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const wc = wordCount(input);
+  const overLimit = wc > INPUT_MAX_WORDS;
+
   const send = (userText) => {
     if (!userText?.trim()) return;
+    if (wordCount(userText) > INPUT_MAX_WORDS) return; // safety
     setInput("");
-    const answer = findAnswer(userText);
+
+    // Personal-advice gate — never search KB for these; route to escalating refusal.
+    if (isAdviceQuestion(userText)) {
+      const newCount = refusalCount + 1;
+      setRefusalCount(newCount);
+      const refusalLine = pickRefusalLine(newCount);
+      setMessages(prev => [
+        ...prev,
+        { role: "user", content: userText },
+        { role: "assistant", content: refusalLine, kind: "refusal" },
+      ]);
+      return;
+    }
+
+    // Normal educational answer (KB lookup with loose fallback — no sales pitch
+    // on unknowns) with Covie's disclaimer footer.
+    const answer = findEducationalAnswer(userText);
+    const composed = `${answer}\n\n${COVIE_DISCLAIMER}`;
     setMessages(prev => [
       ...prev,
       { role: "user", content: userText },
-      { role: "assistant", content: answer },
+      { role: "assistant", content: composed },
     ]);
   };
 
   const renderText = (text) => {
     return text.split("\n").map((line, i) => {
-      const parts = line.split(/(\*\*[^*]+\*\*)/g).map((part, j) =>
-        part.startsWith("**") ? <strong key={j}>{part.slice(2, -2)}</strong> : part
-      );
+      const parts = line.split(/(\*\*[^*]+\*\*|_[^_]+_)/g).map((part, j) => {
+        if (part.startsWith("**") && part.endsWith("**")) return <strong key={j}>{part.slice(2, -2)}</strong>;
+        if (part.startsWith("_") && part.endsWith("_")) return <em key={j} style={{ color: COLORS.textDim, fontSize: 10 }}>{part.slice(1, -1)}</em>;
+        return part;
+      });
       return <span key={i}>{parts}{i < text.split("\n").length - 1 && <br />}</span>;
     });
   };
 
-  const questions = QUICK_QUESTIONS[tab] || ["How does this section work?", "What should I enter here?"];
+  const questions = QUICK_QUESTIONS[tab] || ["How does this section work?", "What goes in this tab?"];
 
   return (
     <>
-      <button
-        onClick={() => setOpen(o => !o)}
-        style={{
-          position: "fixed", bottom: 24, right: 20, zIndex: 1000,
-          width: 52, height: 52, borderRadius: "50%",
-          background: open ? COLORS.textDim : COLORS.accent,
-          border: "none", cursor: "pointer", boxShadow: "0 4px 16px rgba(0,0,0,0.25)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 22, transition: "all 0.2s", color: "#fff",
-        }}
-      >{open ? "✕" : "?"}</button>
+      {/* Floating bubble — speech-bubble icon with a small label tag underneath,
+          so first-time users actually know what it is. */}
+      <div style={{ position: "fixed", bottom: 20, right: 18, zIndex: 1000, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+        <button
+          onClick={() => setOpen(o => !o)}
+          title="Ask Covie — your AI finance guide"
+          style={{
+            width: 54, height: 54, borderRadius: "50%",
+            background: open ? COLORS.textDim : COLORS.accent,
+            border: "none", cursor: "pointer", boxShadow: "0 6px 18px rgba(0,0,0,0.28)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            transition: "all 0.2s", color: "#fff",
+          }}
+        >
+          {open ? (
+            <span style={{ fontSize: 18, fontWeight: 600 }}>✕</span>
+          ) : (
+            // Friendly chat-bubble with a sparkle — reads instantly as "ask me something"
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M4 5.5C4 4.12 5.12 3 6.5 3h11C18.88 3 20 4.12 20 5.5v8c0 1.38-1.12 2.5-2.5 2.5H10l-4 3.5V16H6.5C5.12 16 4 14.88 4 13.5v-8z" fill="#fff"/>
+              <circle cx="9" cy="9.5" r="1.2" fill={COLORS.accent}/>
+              <circle cx="12.5" cy="9.5" r="1.2" fill={COLORS.accent}/>
+              <circle cx="16" cy="9.5" r="1.2" fill={COLORS.accent}/>
+              <path d="M19 2l.6 1.4L21 4l-1.4.6L19 6l-.6-1.4L17 4l1.4-.6L19 2z" fill="#ffd566"/>
+            </svg>
+          )}
+        </button>
+        {!open && (
+          <div style={{
+            background: COLORS.card, color: COLORS.text,
+            padding: "2px 8px", borderRadius: 10,
+            fontSize: 10, fontWeight: 600, fontFamily: "'DM Sans', sans-serif",
+            boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
+            border: `1px solid ${COLORS.border}`,
+            pointerEvents: "none",
+          }}>Ask Covie</div>
+        )}
+      </div>
 
       {open && (
         <div style={{
-          position: "fixed", bottom: 86, right: 12, left: 12, zIndex: 999,
-          maxWidth: 480, margin: "0 auto",
-          background: COLORS.card, borderRadius: 16,
-          boxShadow: "0 8px 40px rgba(0,0,0,0.20)",
+          position: "fixed", bottom: 76, right: 12, left: 12, zIndex: 999,
+          maxWidth: 460, margin: "0 auto",
+          background: COLORS.card, borderRadius: 14,
+          boxShadow: "0 8px 36px rgba(0,0,0,0.22)",
           border: `1px solid ${COLORS.border}`,
-          display: "flex", flexDirection: "column", height: "70vh", maxHeight: 560,
+          display: "flex", flexDirection: "column", height: "70vh", maxHeight: 580,
         }}>
-          <div style={{ background: COLORS.accent, borderRadius: "16px 16px 0 0", padding: "12px 16px", display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>✨</div>
+          <div style={{ background: COLORS.accent, borderRadius: "14px 14px 0 0", padding: "11px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 30, height: 30, borderRadius: "50%", background: "rgba(255,255,255,0.22)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff" }}>C</div>
             <div>
-              <div style={{ color: "#fff", fontSize: 13, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>Financial Guide</div>
-              <div style={{ color: "rgba(255,255,255,0.8)", fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>Plain-English financial literacy</div>
+              <div style={{ color: "#fff", fontSize: 13, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>Covie</div>
+              <div style={{ color: "rgba(255,255,255,0.85)", fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>Your AI finance guide · education only</div>
             </div>
           </div>
 
           <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
             {messages.map((m, i) => (
-              <div key={i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start" }}>
+              <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: m.role === "user" ? "flex-end" : "flex-start" }}>
                 <div style={{
-                  maxWidth: "88%", padding: "9px 12px",
+                  maxWidth: "90%", padding: "9px 12px",
                   borderRadius: m.role === "user" ? "12px 12px 2px 12px" : "12px 12px 12px 2px",
-                  background: m.role === "user" ? COLORS.accent : COLORS.infoBg || "#ece8e1",
+                  background: m.role === "user" ? COLORS.accent : (m.kind === "refusal" ? `${COLORS.accent}15` : COLORS.infoBg || "#ece8e1"),
                   color: m.role === "user" ? "#fff" : COLORS.text,
                   fontSize: 12, fontFamily: "'DM Sans', sans-serif", lineHeight: 1.6,
+                  border: m.kind === "refusal" ? `1px dashed ${COLORS.accent}50` : "none",
                 }}>
                   {renderText(m.content)}
                 </div>
+                {m.kind === "refusal" && (
+                  <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
+                    {REFUSAL_ACTIONS.map(a => (
+                      a.href ? (
+                        <a key={a.id} href={a.href} target="_blank" rel="noreferrer" style={{ padding: "5px 10px", borderRadius: 12, border: `1px solid ${COLORS.accent}`, color: COLORS.accent, fontSize: 10, fontWeight: 600, textDecoration: "none", fontFamily: "'DM Sans', sans-serif" }}>{a.label}</a>
+                      ) : (
+                        <button key={a.id} onClick={() => send("What inputs in this app move my goal progress?")} style={{ padding: "5px 10px", borderRadius: 12, border: `1px solid ${COLORS.accent}`, background: "transparent", color: COLORS.accent, fontSize: 10, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>{a.label}</button>
+                      )
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
             <div ref={messagesEndRef} />
@@ -118,22 +186,32 @@ export function FinancialAssistant({ tab }) {
             </div>
           )}
 
-          <div style={{ padding: "8px 12px 12px", borderTop: `1px solid ${COLORS.border}`, display: "flex", gap: 8 }}>
-            <input
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && send(input)}
-              placeholder="Ask anything about this section..."
-              style={{
-                flex: 1, padding: "8px 12px", borderRadius: 20,
-                border: `1px solid ${COLORS.inputBorder}`, background: COLORS.inputBg,
-                color: COLORS.text, fontSize: 16, fontFamily: "'DM Sans', sans-serif", outline: "none",
-              }}
-            />
-            <button onClick={() => send(input)} style={{
-              width: 36, height: 36, borderRadius: "50%", border: "none",
-              background: input.trim() ? COLORS.accent : COLORS.border,
-              color: "#fff", cursor: "pointer", fontSize: 16, flexShrink: 0,
+          <div style={{ padding: "8px 12px 12px", borderTop: `1px solid ${COLORS.border}`, display: "flex", gap: 8, alignItems: "flex-end" }}>
+            <div style={{ flex: 1, position: "relative" }}>
+              <textarea
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (!overLimit) send(input); } }}
+                placeholder="Ask Covie about a concept or how this app works…"
+                rows={1}
+                style={{
+                  width: "100%", padding: "8px 12px", borderRadius: 18,
+                  border: `1px solid ${overLimit ? "#c0524a" : COLORS.inputBorder}`, background: COLORS.inputBg,
+                  color: COLORS.text, fontSize: 16, fontFamily: "'DM Sans', sans-serif", outline: "none",
+                  resize: "none", lineHeight: 1.5, minHeight: 36, maxHeight: 110,
+                }}
+              />
+              {wc > 0 && (
+                <div style={{
+                  position: "absolute", right: 8, bottom: -14, fontSize: 9,
+                  color: overLimit ? "#c0524a" : COLORS.textDim,
+                }}>{wc} / {INPUT_MAX_WORDS} words{overLimit ? " — trim it down to 500 words or fewer" : ""}</div>
+              )}
+            </div>
+            <button onClick={() => !overLimit && send(input)} disabled={overLimit || !input.trim()} title={overLimit ? "Trim it down to 500 words or fewer — I'll lose the thread otherwise." : "Send"} style={{
+              width: 34, height: 34, borderRadius: "50%", border: "none",
+              background: (input.trim() && !overLimit) ? COLORS.accent : COLORS.border,
+              color: "#fff", cursor: (input.trim() && !overLimit) ? "pointer" : "default", fontSize: 15, flexShrink: 0,
               display: "flex", alignItems: "center", justifyContent: "center",
             }}>↑</button>
           </div>
@@ -142,7 +220,3 @@ export function FinancialAssistant({ tab }) {
     </>
   );
 }
-
-// ============================================================
-// DEFAULT STATE
-// ============================================================

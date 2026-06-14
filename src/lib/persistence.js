@@ -6,7 +6,13 @@
 // older saves can't round-trip cleanly. On a version mismatch we fall through to
 // DEFAULT_STATE rather than crashing.
 const STORAGE_KEY = "covenantPlanner.v1";
-const SCHEMA_VERSION = 1;
+// Bumped to 2 (May 2026) when the sample-client baseline was removed from
+// DEFAULT_STATE. Any v1 saved plan still contains the Michael/Sarah demo
+// numbers; dropping those saves on load forces the wizard to re-run with the
+// new blank baseline. Real user data was never durable here anyway — every
+// existing v1 save is a half-explored demo, not a finished plan. (If we ever
+// ship a true migration, do it inline in loadState() before returning.)
+const SCHEMA_VERSION = 2;
 
 export function saveState({ state, afterState, afterDirty, scenario, theme }) {
   try {

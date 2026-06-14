@@ -4,7 +4,7 @@ import { COLORS, THEMES } from "../data/themes";
 import { TABS } from "../data/tabs";
 import { ASSET_LABELS, DEFAULT_RETURN_PROFILES, DEFAULT_ASSET_RETURNS, normalizeReturnProfiles, normalizeAccountProfile } from "../data/returnProfiles";
 import { DEFAULT_TAX_BRACKETS_2024, DEFAULT_SUPER_PARAMS, DEFAULT_CENTRELINK, DEFAULT_MEDICARE } from "../data/tax2024";
-import { Input, DateInput, FYInput, Select, Card, StatCard, Btn, Modal, HeaderBtn, ScenarioToggle, ReturnSummary, FinancialAssistant, DeficitWarningBadge, MortgageStressBadge } from "../components";
+import { Input, DateInput, FYInput, Select, Card, StatCard, Btn, Modal, HeaderBtn, ScenarioToggle, ReturnSummary, FinancialAssistant, DeficitWarningBadge, MortgageStressBadge, GoalProgress, ScenarioButtons } from "../components";
 import { fmt, pct, calcIncomeTax, calcMedicare, boxMullerRandom, calcDeprivedAssets, calcCentrelinkPension, calcDeemedIncome, getMonthlyEquiv, calcLoanPayoff, runProjection, buildDeficitInfo } from "../lib";
 export function DashboardTab({ state: nowState, projectionData: nowProjectionData, afterProjectionData, afterState, scenario, setState: setNowState, setAfterState, setTab }) {
   // Build deficit diagnostics for both scenarios so cards/charts can flag unsustainable plans.
@@ -43,7 +43,13 @@ export function DashboardTab({ state: nowState, projectionData: nowProjectionDat
   const includeAcc = (k) => isCouple || !k.startsWith("p2");
   const sumAccounts = (obj) => Object.entries(obj).reduce((s, [k, a]) => s + (includeAcc(k) ? (a?.balance || 0) : 0), 0);
   const totalAssets = sumAccounts(assets.superAccounts) + sumAccounts(assets.nonSuper);
-  const totalLifestyle = assets.lifestyleAssets.filter(a => !a.isPrimaryResidence).reduce((s, a) => s + (a.value || 0), 0);
+  // Split lifestyle into PPR (home) vs other (cars/boats/contents) so the Dashboard
+  // can show home value as its own line AND include it in Net Wealth. Previously
+  // the home was filtered out entirely, which meant editing home value on the
+  // Assets tab (or in the wizard) never flowed through to any Dashboard card.
+  const homeValue = assets.lifestyleAssets.filter(a => a.isPrimaryResidence).reduce((s, a) => s + (a.value || 0), 0);
+  const otherLifestyle = assets.lifestyleAssets.filter(a => !a.isPrimaryResidence).reduce((s, a) => s + (a.value || 0), 0);
+  const totalLifestyle = homeValue + otherLifestyle;
   const totalLiabilities = (assets.loans || []).reduce((s, a) => s + (a.balance || 0), 0);
   const netInvestment = totalAssets - totalLiabilities;
   const netWealth = netInvestment + totalLifestyle;
@@ -70,7 +76,8 @@ export function DashboardTab({ state: nowState, projectionData: nowProjectionDat
   const assetPie = [
     { name: "Super", value: sumAccounts(assets.superAccounts) },
     { name: "Non-Super", value: sumAccounts(assets.nonSuper) },
-    { name: "Lifestyle", value: totalLifestyle },
+    { name: "Home", value: homeValue },
+    { name: "Lifestyle", value: otherLifestyle },
   ].filter(d => d.value > 0);
 
   const last5 = projectionData.slice(0, 5);
@@ -385,6 +392,46 @@ export function DashboardTab({ state: nowState, projectionData: nowProjectionDat
     <div>
       {renderPopup()}
 
+      {/* ── V2: Goal Progress + Scenario buttons (top of dashboard).
+            ScenarioButtons must receive the canonical nowState (not the active scenario)
+            because what-if mutations are computed AGAINST the Now baseline — using the
+            active state as the baseline is what caused the compounding bug. ───── */}
+      <div style={{ display: "grid", gap: 12, gridTemplateColumns: "1fr", marginBottom: 16 }}>
+        {/* Drive GoalProgress off the ACTIVE scenario so what-if buttons
+            ("Retire +5 yrs", "+$200/wk to super", etc.) actually move the bars.
+            Previously this was hard-wired to nowState/nowProjectionData, so the
+            scenarios mutated After successfully but the retirement age, income
+            and longevity sub-bars stayed stuck on the Now numbers. Now: if the
+            user is viewing After (or has just toggled a what-if which sets
+            scenario→after), they see the After bars; otherwise Now. */}
+        <GoalProgress
+          projectionData={projectionData}
+          state={state}
+          onEditGoals={() => setTab("goals")}
+          onOpenScenarios={() => {
+            const el = document.getElementById("dashboard-scenarios");
+            el?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }}
+        />
+        {scenario === "after" && afterState && (
+          <div style={{ fontSize: 11, color: COLORS.text, fontStyle: "italic", marginTop: -8, paddingLeft: 4 }}>
+            Showing progress for your <strong>After Advice</strong> scenario (with what-ifs applied). Switch to Now at the top of the page to compare.
+          </div>
+        )}
+        <div id="dashboard-scenarios">
+          <ScenarioButtons
+            nowState={nowState}
+            setAfterState={setAfterState}
+            afterState={afterState}
+            onActivateAfter={() => {
+              if (!afterState) setAfterState(prev => prev || structuredClone(nowState));
+            }}
+            nowProjectionData={nowProjectionData}
+            afterProjectionData={afterProjectionData}
+          />
+        </div>
+      </div>
+
       {/* ── Report Modal ──────────────────────────────── */}
       {showReport && (
         <Modal title="📋 Your Financial Action Plan" onClose={() => setShowReport(false)} width={600}>
@@ -687,9 +734,19 @@ export function DashboardTab({ state: nowState, projectionData: nowProjectionDat
             label: "Tax Saved Over Life",
             value: taxSaved,
             display: Math.abs(taxSaved) > 100 ? `${taxSaved >= 0 ? "+" : ""}${fmt(taxSaved)}` : null,
-            color: taxSaved >= 0 ? COLORS.green : COLORS.red,
-            sub: taxSaved >= 0 ? "Income tax + super contributions tax" : "After scenario has higher tax",
-            isGood: taxSaved >= 0,
+            // Colour follows the NET effect (isGood below), not the raw sign of
+            // taxSaved — a higher tax bill paired with bigger assets is a win, not a loss.
+            color: (taxSaved >= 0 || (taxSaved < 0 && assetsDiff > Math.abs(taxSaved))) ? COLORS.green : COLORS.red,
+            // When After has higher tax, that's almost always because the user is
+            // earning/contributing more — which is good, not bad. The "Extra Assets"
+            // card above shows the net effect. Spell this out so a higher tax bill
+            // isn't mis-read as a loss.
+            sub: taxSaved >= 0
+              ? "Income tax + super contributions tax"
+              : (assetsDiff > 0
+                  ? "Higher tax bill — because you're earning/saving more. Look at Extra Assets above for the NET effect."
+                  : "After scenario has higher tax"),
+            isGood: taxSaved >= 0 || (taxSaved < 0 && assetsDiff > Math.abs(taxSaved)),
           },
           {
             label: "Investment Fees Saved",
@@ -732,8 +789,8 @@ export function DashboardTab({ state: nowState, projectionData: nowProjectionDat
               <span style={{ fontSize: 22 }}>✨</span>
               <div style={{ flex: 1 }}>
                 <div style={{ color: COLORS.text, fontSize: 15, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>Value of Advice</div>
-                <div style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>
-                  {hasChange ? "How much better is your financial future with advice?" : "After scenario created — make changes in Income, Assets, Expenses or Liabilities tabs to see improvements here."}
+                <div style={{ color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>
+                  {hasChange ? "How much better is your financial future with advice? All $ shown in today's dollars." : "After scenario created — make changes in Income, Assets, Expenses or Liabilities tabs to see improvements here."}
                 </div>
               </div>
             </div>
@@ -745,11 +802,11 @@ export function DashboardTab({ state: nowState, projectionData: nowProjectionDat
                       <DeficitWarningBadge deficitInfo={voaDeficitInfo} state={voaDeficitState} setTab={setTab} scenarioLabel={voaDeficitLabel} size={14} title={`${voaDeficitLabel} scenario has unsustainable cashflow — this number may be unreliable. Click for details.`} />
                     </div>
                   )}
-                  <div style={{ color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 2, paddingRight: voaDeficitInfo ? 22 : 0 }}>{m.label}</div>
+                  <div style={{ color: COLORS.text, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 2, paddingRight: voaDeficitInfo ? 22 : 0, fontWeight: 600 }}>{m.label}</div>
                   <div style={{ color: m.display ? m.color : COLORS.textDim, fontSize: 18, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", lineHeight: 1.2 }}>
                     {m.display || "—"}
                   </div>
-                  <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif", marginTop: 3 }}>
+                  <div style={{ color: COLORS.text, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginTop: 3 }}>
                     {m.sub}
                   </div>
                 </div>
@@ -863,10 +920,11 @@ export function DashboardTab({ state: nowState, projectionData: nowProjectionDat
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
         {[
           { label: "Annual Surplus", value: fmt(surplus), color: surplus >= 0 ? COLORS.green : COLORS.red, sub: "Income minus all expenses", showDeficitBadge: true },
-          { label: "Net Wealth", value: fmt(netWealth), color: COLORS.green, sub: "Investments + lifestyle assets" },
+          { label: "Net Wealth", value: fmt(netWealth), color: COLORS.green, sub: "Investments + home + lifestyle" },
           { label: "Annual Income", value: fmt(totalIncome), color: COLORS.cyan, sub: "Salary, pension & other sources" },
           { label: "Annual Expenses", value: fmt(totalExpenses), color: COLORS.accent, sub: "Inc. debt repayments" },
           { label: "Net Investment Assets", value: fmt(netInvestment), color: COLORS.accent, sub: "Super + non-super minus debt" },
+          { label: "Home Value", value: fmt(homeValue), color: COLORS.accent, sub: homeValue > 0 ? "Principal residence" : "Add on the Assets tab" },
           { label: "Liabilities", value: fmt(totalLiabilities), color: totalLiabilities > 0 ? COLORS.red : COLORS.green, sub: totalAssets > 0 ? `Debt ratio: ${pct(totalLiabilities / (totalAssets + totalLifestyle))}` : "No debt recorded", showMortgageBadge: true },
         ].map((item, i) => {
           const showDeficit = item.showDeficitBadge && activeDeficitInfo;
@@ -884,9 +942,9 @@ export function DashboardTab({ state: nowState, projectionData: nowProjectionDat
                   <MortgageStressBadge debtRepayments={debtRepayments} netIncome={netIncome} dsr={debtServiceRatio} setTab={setTab} size={14} />
                 </div>
               )}
-              <div style={{ color: COLORS.textMuted, fontSize: 10, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 4, paddingRight: showAnyBadge ? (showDeficit && showMortgage ? 52 : 22) : 0 }}>{item.label}</div>
+              <div style={{ color: COLORS.text, fontSize: 11, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 4, paddingRight: showAnyBadge ? (showDeficit && showMortgage ? 52 : 22) : 0, fontWeight: 600 }}>{item.label}</div>
               <div style={{ color: item.color, fontSize: 20, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", lineHeight: 1.2 }}>{item.value}</div>
-              {item.sub && <div style={{ color: COLORS.textDim, fontSize: 10, marginTop: 4, fontFamily: "'DM Sans', sans-serif" }}>{item.sub}</div>}
+              {item.sub && <div style={{ color: COLORS.text, fontSize: 11, marginTop: 4, fontFamily: "'DM Sans', sans-serif" }}>{item.sub}</div>}
             </div>
           );
         })}

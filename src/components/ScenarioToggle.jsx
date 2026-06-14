@@ -15,7 +15,7 @@ export function ScenarioToggle({ scenario, onActivateAfter, onActivateNow, onRes
           }}
         >
           <div style={{ color: scenario === "now" ? "#fff" : COLORS.text, fontSize: 13, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>📍 Now</div>
-          <div style={{ color: scenario === "now" ? "#ffffffcc" : COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif", marginTop: 2 }}>Current situation — baseline</div>
+          <div style={{ color: scenario === "now" ? "#ffffffcc" : COLORS.text, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginTop: 2 }}>Current situation — baseline</div>
         </button>
         <button
           onClick={onActivateAfter}
@@ -25,17 +25,17 @@ export function ScenarioToggle({ scenario, onActivateAfter, onActivateNow, onRes
           }}
         >
           <div style={{ color: scenario === "after" ? "#fff" : COLORS.text, fontSize: 13, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>✨ After Advice</div>
-          <div style={{ color: scenario === "after" ? "#ffffffcc" : COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif", marginTop: 2 }}>
+          <div style={{ color: scenario === "after" ? "#ffffffcc" : COLORS.text, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginTop: 2 }}>
             {afterState ? "Showing recommended changes" : "Tap to start modelling improvements"}
           </div>
         </button>
       </div>
       {scenario === "after" && !readOnly && (
         <div style={{ background: `${COLORS.green}15`, padding: "8px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ color: COLORS.green, fontSize: 11, fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}>
+          <span style={{ color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}>
             ✨ You are editing the <strong>After Advice</strong> scenario for {tabName}. Changes here won't affect the baseline.
           </span>
-          <button onClick={onResetAfter} style={{ background: "none", border: `1px solid ${COLORS.green}`, borderRadius: 6, color: COLORS.green, fontSize: 10, padding: "3px 8px", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap", marginLeft: 8 }}>
+          <button onClick={onResetAfter} style={{ background: "none", border: `1px solid ${COLORS.greenDark || COLORS.green}`, borderRadius: 6, color: COLORS.text, fontSize: 11, padding: "3px 8px", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap", marginLeft: 8, fontWeight: 600 }}>
             Reset to Now
           </button>
         </div>

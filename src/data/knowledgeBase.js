@@ -591,16 +591,44 @@ If you would like to explore what that looks like for your specific situation, T
 ];
 ;
 
+// Legacy finder — kept for any callers that still want the
+// "push to Tudor if I don't know" behaviour. Covie does NOT use this.
 export function findAnswer(question) {
   const q = question.toLowerCase();
-  // Check for advice-seeking questions
   const adviceWords = ["should i","should we","what should","recommend","advise","tell me what to do","is it worth","better off","best option for me","right for me"];
   if (adviceWords.some(w => q.includes(w))) return ADVICE_REFERRAL;
-  // Search knowledge base
   const match = KNOWLEDGE_BASE.find(item => item.keys.some(k => q.includes(k)));
   if (match) return match.answer;
-  // Fallback with referral
   return `Great question! That's a topic I'd encourage you to explore with a financial adviser who can look at your specific numbers.\n\nIf you don't have one, **Tudor Cosma** at Covenant Wealth built this tool and works with Australians Australia-wide via video call — no need to be in Melbourne.\n\n📞 **03 9982 4484**\n🌐 **www.covenantwealth.com.au**\n\nIn the meantime, try asking me about: super phases, salary sacrifice, age pension tests, tax rates, pension conversion, gifting rules, or how the projections work.`;
+}
+
+// Covie-friendly finder — no Tudor push on unknowns.
+// Covie's own isAdviceQuestion runs UPSTREAM (in the component), so we can
+// safely search the KB without a duplicate advice-words gate. If nothing
+// matches, we return a friendly "I don't have a canned answer for that — try
+// rephrasing or one of these topics" — never a sales nudge.
+export function findEducationalAnswer(question) {
+  const q = (question || "").toLowerCase().trim();
+  if (!q) return null;
+  // Direct keyword match
+  const match = KNOWLEDGE_BASE.find(item => item.keys.some(k => q.includes(k)));
+  if (match) return match.answer;
+  // Loose match: score each KB item by how many of its keywords share a token with the question
+  const tokens = q.split(/\W+/).filter(t => t.length > 2);
+  if (tokens.length > 0) {
+    let best = null, bestScore = 0;
+    for (const item of KNOWLEDGE_BASE) {
+      for (const k of item.keys) {
+        const kt = k.split(/\W+/).filter(t => t.length > 2);
+        const shared = kt.filter(t => tokens.includes(t)).length;
+        if (shared > bestScore) { bestScore = shared; best = item; }
+      }
+    }
+    if (best && bestScore >= 2) return best.answer;
+    if (best && bestScore === 1 && tokens.length <= 4) return best.answer;
+  }
+  // Friendly fallback — no sales pitch.
+  return `Honest answer: I don't have a canned explanation for that exact question. Try rephrasing — or ask me about one of these:\n\n• **Super basics** — concessional cap, salary sacrifice, contributions tax, preservation age\n• **Age pension** — assets test, income test, deeming, gifting rules\n• **Tax** — marginal brackets, Medicare levy, franking credits, Div 293\n• **Retirement mechanics** — pension phase, transfer balance cap, drawdown minimums, TTR\n• **How this app works** — Now vs After, what the projection charts mean, how the Value of Advice card is calculated\n\nI'm a teacher, not a search engine — pointing me at a concept works better than a yes/no question.`;
 }
 
 export const QUICK_QUESTIONS = {

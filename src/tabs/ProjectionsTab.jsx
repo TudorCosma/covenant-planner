@@ -1,12 +1,13 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, ComposedChart } from "recharts";
+import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, ComposedChart, ReferenceLine } from "recharts";
 import { COLORS, THEMES } from "../data/themes";
 import { TABS } from "../data/tabs";
 import { ASSET_LABELS, DEFAULT_RETURN_PROFILES, DEFAULT_ASSET_RETURNS, profileDisplayLabel } from "../data/returnProfiles";
-import { Input, DateInput, FYInput, Select, Card, StatCard, Btn, Modal, HeaderBtn, ScenarioToggle, ReturnSummary, FinancialAssistant, DeficitWarningModal, DeficitWarningBadge } from "../components";
+import { Input, DateInput, FYInput, YearSelect, Select, Card, StatCard, Btn, Modal, HeaderBtn, ScenarioToggle, ReturnSummary, FinancialAssistant, DeficitWarningModal, DeficitWarningBadge } from "../components";
 import { fmt, pct, calcIncomeTax, calcMedicare, boxMullerRandom, calcDeprivedAssets, calcCentrelinkPension, calcDeemedIncome, getMonthlyEquiv, calcLoanPayoff, runProjection, buildDeficitInfo } from "../lib";
 export function ProjectionsTab({ state: nowState, setState: setNowState, setAfterState, projectionData: nowProjectionData, afterProjectionData, scenario, afterState, onActivateAfter, onActivateNow, onResetAfter, setTab }) {
   const [view, setView] = useState("chart");
+  const [showDetail, setShowDetail] = useState(false);
   const [popup, setPopup] = useState(null); // null | "salaryP1" | "salaryP2" | "expenses" | "super" | "nonSuper" | "income"
   // Display the scenario the user is currently editing — Now or After Advice.
   // Edits made in After mode go to afterState (so the After Advice scenario stays separate).
@@ -39,6 +40,107 @@ export function ProjectionsTab({ state: nowState, setState: setNowState, setAfte
   const updIncP1 = (f, v) => setState(s => ({ ...s, income: { ...s.income, person1: { ...s.income.person1, [f]: v } } }));
   const updIncP2 = (f, v) => setState(s => ({ ...s, income: { ...s.income, person2: { ...s.income.person2, [f]: v } } }));
   const updExp = (f, v) => setState(s => ({ ...s, expenses: { ...s.expenses, [f]: v } }));
+
+  const exportCSV = () => {
+    const esc = (v) => {
+      if (v === null || v === undefined) return "";
+      const s = String(v);
+      return s.includes(",") || s.includes('"') || s.includes("\n") ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const num = (v) => (v === null || v === undefined ? "" : Math.round(v));
+
+    const headers = ["Year", "Age", `${n1} Salary`];
+    if (isCouple) headers.push(`${n2} Salary`);
+    if (showDetail) headers.push("Inv Returns");
+    headers.push("Super Draw");
+    headers.push("Age Pension");
+    if (showDetail) headers.push("Other Inc");
+    headers.push("Total Income");
+    if (showDetail) {
+      headers.push("Lifestyle Exp");
+      headers.push("Recurring Exp");
+      headers.push("One-off Exp");
+      headers.push("Loan Payments");
+    }
+    headers.push("Total Expenses");
+    if (showDetail) {
+      headers.push("Income Tax");
+      if (isCouple) headers.push("Medicare");
+      headers.push("Super Tax");
+      headers.push("LITO");
+      if (isCouple) headers.push("SAPTO");
+      headers.push("Div293");
+    }
+    headers.push("Total Tax");
+    headers.push("Debt");
+    headers.push("Surplus");
+    headers.push("Cash Buffer");
+    headers.push("Super Balance");
+    headers.push("Non-Super Balance");
+    headers.push("Net Assets");
+    if (afterProjectionData) headers.push("Delta After Advice");
+
+    const rows = projectionData.map((r, i) => {
+      const otherInc = (r.p1Dividends || 0) + (r.p2Dividends || 0)
+        + (r.p1RentalInc || 0) + (r.p2RentalInc || 0)
+        + (r.p1OtherTaxable || 0) + (r.p2OtherTaxable || 0)
+        + (r.p1TaxFreeInc || 0) + (r.p2TaxFreeInc || 0);
+      const totalLITO = (r.p1LITO || 0) + (r.p2LITO || 0);
+      const totalSAPTO = (r.p1SAPTO || 0) + (r.p2SAPTO || 0);
+      const totalDiv293 = (r.p1Div293 || 0) + (r.p2Div293 || 0);
+      const totalIncTax = (r.p1IncomeTax || 0) + (isCouple ? (r.p2IncomeTax || 0) : 0);
+      const totalMedicare = (r.p1Medicare || 0) + (isCouple ? (r.p2Medicare || 0) : 0);
+      const ar = afterProjectionData ? afterProjectionData[i] : null;
+      const nr = nowProjectionData[i];
+      const diff = (ar && nr) ? (ar.netInvestmentAssets - nr.netInvestmentAssets) : null;
+
+      const cols = [
+        r.year,
+        isCouple ? `${r.age1}/${r.age2}` : r.age1,
+        num(r.p1Salary),
+      ];
+      if (isCouple) cols.push(num(r.p2Salary));
+      if (showDetail) cols.push(num(r.investEarnings));
+      cols.push(num((r.p1PensionDraw || 0) + (r.p2PensionDraw || 0)));
+      cols.push(num(r.agePension));
+      if (showDetail) cols.push(num(otherInc));
+      cols.push(num(r.totalIncome));
+      if (showDetail) {
+        cols.push(num(r.lifestyleExpTotal || 0));
+        cols.push(num(r.recurringExpTotal || 0));
+        cols.push(num(r.futureExpTotal || 0));
+        cols.push(num(r.liabilityPayments || 0));
+      }
+      cols.push(num(r.totalExpenses));
+      if (showDetail) {
+        cols.push(num(totalIncTax));
+        if (isCouple) cols.push(num(totalMedicare));
+        cols.push(num(r.totalSuperTax || 0));
+        cols.push(num(totalLITO));
+        if (isCouple) cols.push(num(totalSAPTO));
+        cols.push(num(totalDiv293));
+      }
+      cols.push(num((r.totalTax || 0) + (r.totalSuperTax || 0)));
+      cols.push(num((r.totalDebtRemaining || 0) + (r.debtAccount || 0)));
+      cols.push(num(r.surplus));
+      cols.push(num(r.cashAccount || 0));
+      cols.push(num((r.p1Super || 0) + (r.p2Super || 0)));
+      cols.push(num((r.p1NonSuper || 0) + (r.p2NonSuper || 0) + (r.jointNonSuper || 0)));
+      cols.push(num(r.netAssets));
+      if (afterProjectionData) cols.push(diff !== null ? num(diff) : "");
+      return cols.map(esc).join(",");
+    });
+
+    const disclaimer = "Educational tool only - not financial advice. All values in today's dollars (real terms).";
+    const csv = [disclaimer, headers.map(esc).join(","), ...rows].join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "covenant-projections.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
   const updSuper = (key, field, val) => setState(s => ({ ...s, assets: { ...s.assets, superAccounts: { ...s.assets.superAccounts, [key]: { ...s.assets.superAccounts[key], [field]: val } } } }));
   const updNonSuper = (key, field, val) => setState(s => ({ ...s, assets: { ...s.assets, nonSuper: { ...s.assets.nonSuper, [key]: { ...s.assets.nonSuper[key], [field]: val } } } }));
 
@@ -106,8 +208,8 @@ export function ProjectionsTab({ state: nowState, setState: setNowState, setAfte
                 <Input label="Amount" value={e.amount} onChange={(v) => updLE(i, "amount", v)} prefix="$" small />
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 , alignItems: "end" }}>
-                <FYInput label="From FY" value={e.startYear} onChange={(v) => updLE(i, "startYear", v)} small />
-                <FYInput label="To FY" value={e.endYear} onChange={(v) => updLE(i, "endYear", v)} small />
+                <YearSelect label="From FY" value={e.startYear} onChange={(v) => updLE(i, "startYear", v)} personal={personal} small />
+                <YearSelect label="To FY" value={e.endYear} onChange={(v) => updLE(i, "endYear", v)} personal={personal} small />
                 <Input label="Indexation" value={e.indexation} onChange={(v) => updLE(i, "indexation", v)} suffix="%" small />
               </div>
             </div>
@@ -127,8 +229,8 @@ export function ProjectionsTab({ state: nowState, setState: setNowState, setAfte
                 <Input label="Amount" value={e.amount} onChange={(v) => updBaseExp(i, "amount", v)} prefix="$" small />
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 , alignItems: "end" }}>
-                <FYInput label="From FY" value={e.startYear || new Date().getFullYear()} onChange={(v) => updBaseExp(i, "startYear", v)} small />
-                <FYInput label="To FY" value={e.endYear || 2065} onChange={(v) => updBaseExp(i, "endYear", v)} small />
+                <YearSelect label="From FY" value={e.startYear || new Date().getFullYear()} onChange={(v) => updBaseExp(i, "startYear", v)} personal={personal} small />
+                <YearSelect label="To FY" value={e.endYear || 2065} onChange={(v) => updBaseExp(i, "endYear", v)} personal={personal} small />
                 <Select value={e.type} onChange={(v) => updBaseExp(i, "type", v)} small options={[{ value: "essential", label: "Essential" }, { value: "desirable", label: "Desirable" }]} />
                 <Input value={e.indexation} onChange={(v) => updBaseExp(i, "indexation", v)} suffix="%" small />
               </div>
@@ -142,8 +244,8 @@ export function ProjectionsTab({ state: nowState, setState: setNowState, setAfte
             <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 0.7fr 0.7fr 1fr auto", gap: 8, marginBottom: 8, alignItems: "center" }}>
               <Input value={e.description} onChange={(v) => updFutureExp(i, "description", v)} type="text" small />
               <Input value={e.amount} onChange={(v) => updFutureExp(i, "amount", v)} prefix="$" small />
-              <FYInput value={e.startYear} onChange={(v) => updFutureExp(i, "startYear", v)} small />
-              <FYInput value={e.endYear} onChange={(v) => updFutureExp(i, "endYear", v)} small />
+              <YearSelect value={e.startYear} onChange={(v) => updFutureExp(i, "startYear", v)} personal={personal} small />
+              <YearSelect value={e.endYear} onChange={(v) => updFutureExp(i, "endYear", v)} personal={personal} small />
               <Select value={e.type} onChange={(v) => updFutureExp(i, "type", v)} small options={[{ value: "essential", label: "Essential" }, { value: "desirable", label: "Desirable" }]} />
               <button onClick={() => rmFutureExp(i)} style={{ background: "none", border: "none", color: COLORS.red, cursor: "pointer", fontSize: 16 }}>×</button>
             </div>
@@ -233,9 +335,18 @@ export function ProjectionsTab({ state: nowState, setState: setNowState, setAfte
       )}
       <ScenarioToggle scenario={scenario} onActivateAfter={onActivateAfter} onActivateNow={onActivateNow} onResetAfter={onResetAfter} afterState={afterState} tabName="Projections" />
       {renderPopup()}
-      <div className="flex gap-2" style={{ marginBottom: 16 }}>
+      <div className="flex gap-2" style={{ marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
         <Btn active={view === "chart"} onClick={() => setView("chart")}>Charts</Btn>
         <Btn active={view === "table"} onClick={() => setView("table")}>Data Table</Btn>
+        {view === "table" && (
+          <>
+            <div style={{ width: 1, height: 20, background: COLORS.border, margin: "0 4px" }} />
+            <Btn active={!showDetail} onClick={() => setShowDetail(false)} style={{ fontSize: 10 }}>Compact</Btn>
+            <Btn active={showDetail} onClick={() => setShowDetail(true)} style={{ fontSize: 10 }}>Detail</Btn>
+            <div style={{ width: 1, height: 20, background: COLORS.border, margin: "0 4px" }} />
+            <Btn onClick={exportCSV} style={{ fontSize: 10 }}>⬇ Export CSV</Btn>
+          </>
+        )}
         {afterProjectionData && (
           <div style={{ marginLeft: "auto", padding: "4px 10px", background: `${COLORS.green}20`, border: `1px solid ${COLORS.green}40`, borderRadius: 6, fontSize: 10, color: COLORS.green, fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}>
             ✨ Showing Before vs After Advice
@@ -257,6 +368,44 @@ export function ProjectionsTab({ state: nowState, setState: setNowState, setAfte
                 <Bar dataKey="totalExpenses" fill={COLORS.red} name="Expenses (Now)" opacity={0.7} />
                 <Line type="monotone" dataKey="surplus" stroke={COLORS.accent} name="Surplus (Now)" strokeWidth={2} dot={false} />
                 {afterProjectionData && <Line type="monotone" data={afterProjectionData} dataKey="surplus" stroke={COLORS.green} name="Surplus (After)" strokeWidth={2} strokeDasharray="5 3" dot={false} />}
+              </ComposedChart>
+            </ResponsiveContainer>
+          </Card>
+
+          <Card title="Cashflow Surplus / Deficit" actions={<DeficitWarningBadge deficitInfo={deficitInfo} state={state} setTab={setTab} scenarioLabel={scenario === "after" ? "After Advice" : "Now"} />}>
+            <div style={{ fontSize: 11, color: COLORS.textDim, marginBottom: 8, fontFamily: "'DM Sans', sans-serif" }}>
+              Green bars = surplus (income exceeds expenses). Red bars = deficit. Zero line marks breakeven.
+            </div>
+            <ResponsiveContainer width="100%" height={300}>
+              <ComposedChart data={projectionData} barCategoryGap="20%">
+                <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} />
+                <XAxis dataKey="age1" tick={{ fill: COLORS.textDim, fontSize: 11 }} />
+                <YAxis tick={{ fill: COLORS.textDim, fontSize: 11 }} tickFormatter={fmt} />
+                <ReferenceLine y={0} stroke={COLORS.textDim} strokeWidth={1.5} />
+                <Tooltip
+                  formatter={(v, name) => [fmt(v), name]}
+                  contentStyle={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8 }}
+                />
+                <Legend />
+                <Bar dataKey="totalIncome" fill={COLORS.green} name="Income (Now)" opacity={0.45} />
+                <Bar dataKey="totalExpenses" fill={COLORS.orange} name="Expenses (Now)" opacity={0.45} />
+                <Bar dataKey="surplus" name="Surplus / Deficit (Now)">
+                  {projectionData.map((entry, i) => (
+                    <Cell key={i} fill={entry.surplus >= 0 ? COLORS.green : COLORS.red} />
+                  ))}
+                </Bar>
+                {afterProjectionData && (
+                  <Line
+                    type="monotone"
+                    data={afterProjectionData}
+                    dataKey="surplus"
+                    stroke={COLORS.accent}
+                    name="Surplus / Deficit (After)"
+                    strokeWidth={2}
+                    strokeDasharray="5 3"
+                    dot={false}
+                  />
+                )}
               </ComposedChart>
             </ResponsiveContainer>
           </Card>
@@ -333,52 +482,122 @@ export function ProjectionsTab({ state: nowState, setState: setNowState, setAfte
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>
               <thead>
+                {/* Group header row — only shown in detail mode */}
+                {showDetail && (() => {
+                  const th = (label, span, color) => (
+                    <th key={label} colSpan={span} style={{ padding: "4px 6px", textAlign: "center", fontSize: 10, fontWeight: 700, color, borderBottom: `2px solid ${color}50`, whiteSpace: "nowrap" }}>{label}</th>
+                  );
+                  return (
+                    <tr>
+                      <th colSpan={2} />
+                      {th("── INCOME (gross) ──", isCouple ? 7 : 6, COLORS.green)}
+                      {th("── EXPENSES ──", 5, COLORS.orange)}
+                      {th("── TAX DETAIL ──", isCouple ? 7 : 5, COLORS.red)}
+                      <th colSpan={afterProjectionData ? 6 : 5} style={{ padding: "4px 6px", textAlign: "center", fontSize: 10, color: COLORS.textDim }}>── BALANCES ──</th>
+                    </tr>
+                  );
+                })()}
                 <tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>
-                  <th style={{ padding: "8px 6px", textAlign: "right", color: COLORS.textDim, fontWeight: 500, fontSize: 11 }}>Year</th>
-                  <th style={{ padding: "8px 6px", textAlign: "right", color: COLORS.textDim, fontWeight: 500, fontSize: 11 }}>Age</th>
-                  <th style={{ padding: 0 }}><HeaderBtn onClick={() => setPopup("salaryP1")} color={COLORS.text}>{`Salary ${n1}`}</HeaderBtn></th>
-                  {isCouple && <th style={{ padding: 0 }}><HeaderBtn onClick={() => setPopup("salaryP2")} color={COLORS.text}>{`Salary ${n2}`}</HeaderBtn></th>}
-                  <th style={{ padding: 0 }}><HeaderBtn onClick={() => setPopup("super")} color={COLORS.cyan}>Pension Draw</HeaderBtn></th>
-                  <th style={{ padding: "8px 6px", textAlign: "right", color: COLORS.textDim, fontWeight: 500, fontSize: 11 }}>Age Pension</th>
-                  <th style={{ padding: 0 }}><HeaderBtn onClick={() => setPopup("salaryP1")} color={COLORS.green}>Total Income</HeaderBtn></th>
+                  {/* Year / Age */}
+                  <th style={{ padding: "8px 6px", textAlign: "right", color: COLORS.textDim, fontWeight: 500, fontSize: 11, whiteSpace: "nowrap" }}>Year</th>
+                  <th style={{ padding: "8px 6px", textAlign: "right", color: COLORS.textDim, fontWeight: 500, fontSize: 11, whiteSpace: "nowrap" }}>Age</th>
+                  {/* Income columns */}
+                  <th style={{ padding: 0 }}><HeaderBtn onClick={() => setPopup("salaryP1")} color={COLORS.text}>{`${n1} Salary`}</HeaderBtn></th>
+                  {isCouple && <th style={{ padding: 0 }}><HeaderBtn onClick={() => setPopup("salaryP2")} color={COLORS.text}>{`${n2} Salary`}</HeaderBtn></th>}
+                  {showDetail && <th style={{ padding: "8px 6px", textAlign: "right", color: COLORS.cyan, fontWeight: 500, fontSize: 11, whiteSpace: "nowrap" }}>Inv Returns</th>}
+                  <th style={{ padding: 0 }}><HeaderBtn onClick={() => setPopup("super")} color={COLORS.cyan}>Super Draw</HeaderBtn></th>
+                  <th style={{ padding: "8px 6px", textAlign: "right", color: COLORS.purple, fontWeight: 500, fontSize: 11, whiteSpace: "nowrap" }}>Age Pension</th>
+                  {showDetail && <th style={{ padding: "8px 6px", textAlign: "right", color: COLORS.textDim, fontWeight: 500, fontSize: 11, whiteSpace: "nowrap" }}>Other Inc</th>}
+                  <th style={{ padding: 0 }}><HeaderBtn onClick={() => setPopup("income")} color={COLORS.green}>Total Income</HeaderBtn></th>
+                  {/* Expense columns */}
+                  {showDetail && <>
+                    <th style={{ padding: "8px 6px", textAlign: "right", color: COLORS.orange, fontWeight: 500, fontSize: 11, whiteSpace: "nowrap" }}>Lifestyle</th>
+                    <th style={{ padding: "8px 6px", textAlign: "right", color: COLORS.orange, fontWeight: 500, fontSize: 11, whiteSpace: "nowrap" }}>Recurring</th>
+                    <th style={{ padding: "8px 6px", textAlign: "right", color: COLORS.orange, fontWeight: 500, fontSize: 11, whiteSpace: "nowrap" }}>One-offs</th>
+                    <th style={{ padding: "8px 6px", textAlign: "right", color: COLORS.orange, fontWeight: 500, fontSize: 11, whiteSpace: "nowrap" }}>Loan Pmts</th>
+                  </>}
                   <th style={{ padding: 0 }}><HeaderBtn onClick={() => setPopup("expenses")} color={COLORS.orange}>Expenses</HeaderBtn></th>
-                  <th style={{ padding: "8px 6px", textAlign: "right", color: COLORS.red, fontWeight: 500, fontSize: 11 }}>Tax</th>
-                  <th style={{ padding: "8px 6px", textAlign: "right", color: COLORS.red, fontWeight: 500, fontSize: 11 }} title="Existing loans + cashflow debt account">Debt</th>
-                  <th style={{ padding: "8px 6px", textAlign: "right", color: COLORS.textDim, fontWeight: 500, fontSize: 11 }}>Surplus</th>
-                  <th style={{ padding: "8px 6px", textAlign: "right", color: COLORS.cyan, fontWeight: 500, fontSize: 11 }} title="Cash buffer account driven by Settings → Cashflow Management">Cash Acct</th>
+                  {/* Tax detail columns */}
+                  {showDetail && <>
+                    <th style={{ padding: "8px 6px", textAlign: "right", color: COLORS.red, fontWeight: 500, fontSize: 11, whiteSpace: "nowrap" }}>Inc Tax</th>
+                    {isCouple && <th style={{ padding: "8px 6px", textAlign: "right", color: COLORS.red, fontWeight: 500, fontSize: 11, whiteSpace: "nowrap" }}>Medicare</th>}
+                    <th style={{ padding: "8px 6px", textAlign: "right", color: COLORS.orange, fontWeight: 500, fontSize: 11, whiteSpace: "nowrap" }}>Super Tax</th>
+                    <th style={{ padding: "8px 6px", textAlign: "right", color: COLORS.green, fontWeight: 500, fontSize: 11, whiteSpace: "nowrap" }} title="Low Income Tax Offset — reduces income tax">LITO</th>
+                    {isCouple && <th style={{ padding: "8px 6px", textAlign: "right", color: COLORS.green, fontWeight: 500, fontSize: 11, whiteSpace: "nowrap" }} title="Seniors & Pensioners Tax Offset">SAPTO</th>}
+                    <th style={{ padding: "8px 6px", textAlign: "right", color: COLORS.red, fontWeight: 500, fontSize: 11, whiteSpace: "nowrap" }} title="Division 293 — extra 15% tax for high earners">Div293</th>
+                  </>}
+                  <th style={{ padding: "8px 6px", textAlign: "right", color: COLORS.red, fontWeight: showDetail ? 700 : 500, fontSize: 11, whiteSpace: "nowrap" }}>Tax</th>
+                  {/* Balance/surplus columns */}
+                  <th style={{ padding: "8px 6px", textAlign: "right", color: COLORS.red, fontWeight: 500, fontSize: 11, whiteSpace: "nowrap" }} title="Existing loans + cashflow debt account">Debt</th>
+                  <th style={{ padding: "8px 6px", textAlign: "right", color: COLORS.textDim, fontWeight: 600, fontSize: 11, whiteSpace: "nowrap" }}>Surplus</th>
+                  <th style={{ padding: "8px 6px", textAlign: "right", color: COLORS.cyan, fontWeight: 500, fontSize: 11, whiteSpace: "nowrap" }} title="Cash buffer account">Cash</th>
                   <th style={{ padding: 0 }}><HeaderBtn onClick={() => setPopup("super")} color={COLORS.accent}>Super</HeaderBtn></th>
                   <th style={{ padding: 0 }}><HeaderBtn onClick={() => setPopup("nonSuper")} color={COLORS.cyan}>Non-Super</HeaderBtn></th>
-                  <th style={{ padding: "8px 6px", textAlign: "right", color: COLORS.textDim, fontWeight: 500, fontSize: 11 }}>Net Assets</th>
-                  {afterProjectionData && <th style={{ padding: "8px 6px", textAlign: "right", color: COLORS.green, fontWeight: 600, fontSize: 11 }}>Δ After</th>}
+                  <th style={{ padding: "8px 6px", textAlign: "right", color: COLORS.textDim, fontWeight: 500, fontSize: 11, whiteSpace: "nowrap" }}>Net Assets</th>
+                  {afterProjectionData && <th style={{ padding: "8px 6px", textAlign: "right", color: COLORS.green, fontWeight: 600, fontSize: 11, whiteSpace: "nowrap" }}>Δ After</th>}
                 </tr>
               </thead>
               <tbody>
-                {projectionData.map((r, i) => (
-                  <tr key={i} style={{ borderBottom: `1px solid ${COLORS.border}15` }}>
-                    <td style={{ padding: "6px", color: COLORS.text }}>{r.year}</td>
-                    <td style={{ padding: "6px", color: COLORS.textMuted, textAlign: "right" }}>{r.age1}{isCouple && `/${r.age2}`}</td>
-                    <td style={{ padding: "6px", color: COLORS.text, textAlign: "right" }}>{fmt(r.p1Salary)}</td>
-                    {isCouple && <td style={{ padding: "6px", color: COLORS.text, textAlign: "right" }}>{fmt(r.p2Salary)}</td>}
-                    <td style={{ padding: "6px", color: COLORS.cyan, textAlign: "right" }}>{fmt(r.p1PensionDraw + r.p2PensionDraw)}</td>
-                    <td style={{ padding: "6px", color: COLORS.purple, textAlign: "right" }}>{fmt(r.agePension)}</td>
-                    <td style={{ padding: "6px", color: COLORS.green, textAlign: "right" }}>{fmt(r.totalIncome)}</td>
-                    <td style={{ padding: "6px", color: COLORS.orange, textAlign: "right" }}>{fmt(r.totalExpenses)}</td>
-                    <td style={{ padding: "6px", color: COLORS.red, textAlign: "right" }}>{fmt(r.totalTax + r.totalSuperTax)}</td>
-                    <td style={{ padding: "6px", color: COLORS.red, textAlign: "right" }}>{fmt((r.totalDebtRemaining || 0) + (r.debtAccount || 0))}</td>
-                    <td style={{ padding: "6px", color: r.surplus >= 0 ? COLORS.green : COLORS.red, textAlign: "right" }}>{fmt(r.surplus)}</td>
-                    <td style={{ padding: "6px", color: COLORS.cyan, textAlign: "right" }}>{fmt(r.cashAccount || 0)}</td>
-                    <td style={{ padding: "6px", color: COLORS.accent, textAlign: "right" }}>{fmt(r.p1Super + r.p2Super)}</td>
-                    <td style={{ padding: "6px", color: COLORS.cyan, textAlign: "right" }}>{fmt(r.p1NonSuper + r.p2NonSuper + r.jointNonSuper)}</td>
-                    <td style={{ padding: "6px", color: COLORS.text, textAlign: "right", fontWeight: 600 }}>{fmt(r.netAssets)}</td>
-                    {afterProjectionData && (() => {
-                      // Always compare After vs Now regardless of which scenario is being viewed
-                      const ar = afterProjectionData[i];
-                      const nr = nowProjectionData[i];
-                      const diff = (ar && nr) ? (ar.netInvestmentAssets - nr.netInvestmentAssets) : 0;
-                      return <td style={{ padding: "6px", color: diff >= 0 ? COLORS.green : COLORS.red, textAlign: "right", fontWeight: 600 }}>{diff >= 0 ? "+" : ""}{fmt(diff)}</td>;
-                    })()}
-                  </tr>
-                ))}
+                {projectionData.map((r, i) => {
+                  const rowHasDeficit = r.surplus < 0;
+                  const td = (v, color, bold) => (
+                    <td style={{ padding: "5px 6px", color: color || COLORS.text, textAlign: "right", fontWeight: bold ? 600 : 400 }}>{fmt(v)}</td>
+                  );
+                  const otherInc = (r.p1Dividends || 0) + (r.p2Dividends || 0)
+                    + (r.p1RentalInc || 0) + (r.p2RentalInc || 0)
+                    + (r.p1OtherTaxable || 0) + (r.p2OtherTaxable || 0)
+                    + (r.p1TaxFreeInc || 0) + (r.p2TaxFreeInc || 0);
+                  const totalLITO = (r.p1LITO || 0) + (r.p2LITO || 0);
+                  const totalSAPTO = (r.p1SAPTO || 0) + (r.p2SAPTO || 0);
+                  const totalDiv293 = (r.p1Div293 || 0) + (r.p2Div293 || 0);
+                  const totalIncTax = (r.p1IncomeTax || 0) + (isCouple ? (r.p2IncomeTax || 0) : 0);
+                  const totalMedicare = (r.p1Medicare || 0) + (isCouple ? (r.p2Medicare || 0) : 0);
+                  const ar = afterProjectionData ? afterProjectionData[i] : null;
+                  const nr = nowProjectionData[i];
+                  const diff = (ar && nr) ? (ar.netInvestmentAssets - nr.netInvestmentAssets) : 0;
+                  return (
+                    <tr key={i} style={{ borderBottom: `1px solid ${COLORS.border}12`, background: rowHasDeficit ? `${COLORS.red}06` : "transparent" }}>
+                      <td style={{ padding: "5px 6px", color: COLORS.text }}>{r.year}</td>
+                      <td style={{ padding: "5px 6px", color: COLORS.textDim, textAlign: "right" }}>{r.age1}{isCouple && `/${r.age2}`}</td>
+                      {/* Income */}
+                      {td(r.p1Salary)}
+                      {isCouple && td(r.p2Salary)}
+                      {showDetail && td(r.investEarnings, COLORS.cyan)}
+                      {td(r.p1PensionDraw + r.p2PensionDraw, COLORS.cyan)}
+                      {td(r.agePension, COLORS.purple)}
+                      {showDetail && td(otherInc, COLORS.textDim)}
+                      {td(r.totalIncome, COLORS.green, showDetail)}
+                      {/* Expenses */}
+                      {showDetail && <>
+                        {td(r.lifestyleExpTotal || 0, COLORS.orange)}
+                        {td(r.recurringExpTotal || 0, COLORS.orange)}
+                        {td(r.futureExpTotal || 0, COLORS.orange)}
+                        {td(r.liabilityPayments || 0, COLORS.orange)}
+                      </>}
+                      {td(r.totalExpenses, COLORS.orange, showDetail)}
+                      {/* Tax detail */}
+                      {showDetail && <>
+                        {td(totalIncTax, COLORS.red)}
+                        {isCouple && td(totalMedicare, `${COLORS.red}cc`)}
+                        {td(r.totalSuperTax || 0, COLORS.orange)}
+                        {td(totalLITO, COLORS.green)}
+                        {isCouple && td(totalSAPTO, COLORS.green)}
+                        {td(totalDiv293, totalDiv293 > 0 ? COLORS.red : COLORS.textDim)}
+                      </>}
+                      {td((r.totalTax || 0) + (r.totalSuperTax || 0), COLORS.red, showDetail)}
+                      {/* Balances */}
+                      {td((r.totalDebtRemaining || 0) + (r.debtAccount || 0), COLORS.red)}
+                      <td style={{ padding: "5px 6px", color: rowHasDeficit ? COLORS.red : COLORS.green, textAlign: "right", fontWeight: 600 }}>{fmt(r.surplus)}</td>
+                      {td(r.cashAccount || 0, COLORS.cyan)}
+                      {td(r.p1Super + r.p2Super, COLORS.accent)}
+                      {td(r.p1NonSuper + r.p2NonSuper + r.jointNonSuper, COLORS.cyan)}
+                      {td(r.netAssets, COLORS.text, true)}
+                      {afterProjectionData && (
+                        <td style={{ padding: "5px 6px", color: diff >= 0 ? COLORS.green : COLORS.red, textAlign: "right", fontWeight: 600 }}>{diff >= 0 ? "+" : ""}{fmt(diff)}</td>
+                      )}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

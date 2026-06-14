@@ -18,13 +18,28 @@ export function PersonalTab({ state, setState }) {
           <Btn active={!personal.isCouple} onClick={() => upd("isCouple", false)}>Single</Btn>
           <Btn active={personal.isCouple} onClick={() => upd("isCouple", true)}>Couple</Btn>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-3" style={{ marginBottom: 16 }}>
           <Btn active={personal.isHomeowner} onClick={() => upd("isHomeowner", !personal.isHomeowner)} color={COLORS.green}>
             {personal.isHomeowner ? "✓ Homeowner" : "Renter"}
           </Btn>
           <Btn active={personal.hasPrivateHealth} onClick={() => upd("hasPrivateHealth", !personal.hasPrivateHealth)} color={COLORS.cyan}>
             {personal.hasPrivateHealth ? "✓ Private Health" : "No Private Health"}
           </Btn>
+          <Btn active={!!personal.illnessSeparated} onClick={() => upd("illnessSeparated", !personal.illnessSeparated)} color={COLORS.orange}>
+            {personal.illnessSeparated ? "✓ Illness Separated" : "Illness Separated"}
+          </Btn>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, alignItems: "end" }}>
+          <Input
+            label="Dependent Children (for Medicare levy threshold)"
+            value={personal.dependentChildren || 0}
+            onChange={(v) => upd("dependentChildren", Math.max(0, Math.round(v || 0)))}
+          />
+          <div style={{ paddingBottom: 4 }}>
+            <div style={{ fontSize: 11, color: COLORS.textDim, marginBottom: 4 }}>
+              Private health cover exempts you from the Medicare Levy Surcharge (MLS). Each dependent child raises the MLS family threshold by $1,500.
+            </div>
+          </div>
         </div>
       </Card>
 
@@ -61,6 +76,34 @@ export function PersonalTab({ state, setState }) {
           <Input label="Inflation Rate (%)" value={personal.inflationRate} onChange={(v) => upd("inflationRate", v)} suffix="%" />
           <Input label="Salary Growth (%)" value={personal.salaryGrowth} onChange={(v) => upd("salaryGrowth", v)} suffix="%" />
           <Input label="Projection Years" value={personal.projectionYears} onChange={(v) => upd("projectionYears", v)} />
+        </div>
+      </Card>
+
+      <Card title="Centrelink & Age Pension">
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+          <div>
+            <div style={{ fontSize: 11, color: COLORS.textDim, marginBottom: 4, fontWeight: 600 }}>Assets Test (homeowners)</div>
+            <div style={{ fontSize: 11, color: COLORS.text }}>
+              Single: full pension below {fmt(321500)}, tapers to zero around {fmt(643750)}
+            </div>
+            <div style={{ fontSize: 11, color: COLORS.text }}>
+              Couple: full pension below {fmt(481500)}, tapers to zero around {fmt(956500)}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, color: COLORS.textDim, marginBottom: 4, fontWeight: 600 }}>Income Test</div>
+            <div style={{ fontSize: 11, color: COLORS.text }}>
+              Single: full pension below {fmt(5668)}/yr, reduces 50¢ per $ above
+            </div>
+            <div style={{ fontSize: 11, color: COLORS.text }}>
+              Couple: full pension below {fmt(9880)}/yr combined, reduces 50¢ per $ above
+            </div>
+          </div>
+        </div>
+        <div style={{ padding: "10px 12px", background: COLORS.infoBg || "#ece8e1", borderRadius: 8, fontSize: 11, color: COLORS.textDim, lineHeight: 1.6 }}>
+          <strong style={{ color: COLORS.text }}>Gifting rules</strong> — Centrelink allows up to {fmt(10000)} per year (max {fmt(30000)} over 5 years) without affecting your pension. Gifts above these limits are treated as <em>deprived assets</em> for 5 years.
+          <br />
+          <strong style={{ color: COLORS.accent }}>→ Record your gifts in the Legislation tab → Centrelink section</strong>. That is also where you can adjust the age pension thresholds, deeming rates, and asset taper rate if they've been updated by Services Australia.
         </div>
       </Card>
     </div>

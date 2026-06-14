@@ -8,7 +8,7 @@ export function Modal({ title, onClose, children, width = 680 }) {
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          position: "relative", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12,
+          position: "relative", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: COLORS.radiusLg ?? 12,
           boxShadow: "0 20px 60px rgba(0,0,0,0.2)", width: "90%", maxWidth: width, maxHeight: "80vh", display: "flex", flexDirection: "column",
         }}
       >

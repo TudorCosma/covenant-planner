@@ -56,7 +56,7 @@ export function FYInput({ label, value, onChange, small }) {
   return (
     <div className="flex flex-col gap-1">
       {label && <label style={{ color: COLORS.textMuted, fontSize: small ? 11 : 12, fontFamily: "'DM Sans', sans-serif" }}>{label}</label>}
-      <div className="flex items-center" style={{ background: COLORS.inputBg, border: `1px solid ${COLORS.inputBorder}`, borderRadius: 6, overflow: "hidden", boxShadow: "inset 0 1px 2px rgba(0,0,0,0.06)" }}>
+      <div className="flex items-center" style={{ background: COLORS.inputBg, border: `1px solid ${COLORS.inputBorder}`, borderRadius: COLORS.radiusSm ?? 6, overflow: "hidden", boxShadow: COLORS.inputShadow ?? "inset 0 1px 2px rgba(0,0,0,0.06)" }}>
         <input
           type="text"
           inputMode="numeric"

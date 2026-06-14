@@ -114,7 +114,7 @@ export function LiabilitiesTab({ state, setState, scenario, onActivateAfter, onA
                 <Input label={`Extra Repayment (${loan.frequency || "monthly"})`} value={loan.extraRepayment || 0} onChange={(v) => updLoan(i, "extraRepayment", v)} prefix="$" />
               </div>
               {(loan.extraRepayment || 0) > 0 && (
-                <div style={{ marginTop: 6, fontSize: 11, color: COLORS.green, fontFamily: "'DM Sans', sans-serif" }}>
+                <div style={{ marginTop: 6, fontSize: 12, color: COLORS.text, fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}>
                   Total repayment: {fmt(Math.round(totalRepayment))} per {loan.frequency || "month"}
                 </div>
               )}

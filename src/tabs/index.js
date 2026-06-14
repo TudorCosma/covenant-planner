@@ -9,3 +9,6 @@ export { MonteCarloTab } from './MonteCarloTab';
 export { TaxTab } from './TaxTab';
 export { ReturnsTab } from './ReturnsTab';
 export { SettingsTab } from './SettingsTab';
+export { AgedCareTab } from './AgedCareTab';
+export { CashflowLedgerTab } from './CashflowLedgerTab';
+export { GoalsTab } from './GoalsTab';

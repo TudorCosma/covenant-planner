@@ -8,7 +8,7 @@ export function Select({ label, value, onChange, options, small }) {
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        style={{ background: COLORS.inputBg, border: `1px solid ${COLORS.inputBorder}`, borderRadius: 6, color: COLORS.inputText || COLORS.text, padding: "6px 10px", fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxShadow: "inset 0 1px 2px rgba(0,0,0,0.06)" }}
+        style={{ background: COLORS.inputBg, border: `1px solid ${COLORS.inputBorder}`, borderRadius: COLORS.radiusSm ?? 6, color: COLORS.inputText || COLORS.text, padding: "6px 10px", fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxShadow: COLORS.inputShadow ?? "inset 0 1px 2px rgba(0,0,0,0.06)" }}
       >
         {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>

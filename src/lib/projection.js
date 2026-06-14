@@ -15,12 +15,14 @@ function calcPersonTax({ taxable, frankingCredit, age, isCouple, illnessSeparate
   const grossIncomeTax = calcIncomeTax(taxable, t.taxBrackets || []);
 
   // Non-refundable offsets reduce income tax but not Medicare.
-  let offsets = 0;
-  if (ts.applyLITO !== false && t.lito)  offsets += calcLITO(taxable, t.lito);
+  let lito = 0;
+  let sapto = 0;
+  if (ts.applyLITO !== false && t.lito) lito = calcLITO(taxable, t.lito);
   if (ts.applySAPTO !== false && t.sapto && age >= (t.centrelink?.ageQualifyingAge || 67)) {
     const category = illnessSeparated ? "illnessSeparated" : (isCouple ? "couple" : "single");
-    offsets += calcSAPTO(taxable, category, t.sapto);
+    sapto = calcSAPTO(taxable, category, t.sapto);
   }
+  const offsets = lito + sapto;
   const incomeTaxAfterOffsets = Math.max(0, grossIncomeTax - offsets);
 
   // Medicare split: levy shade-in (s.applyMedicareShadeIn) and MLS (s.applyMLSTiered)
@@ -46,7 +48,7 @@ function calcPersonTax({ taxable, frankingCredit, age, isCouple, illnessSeparate
   const totalTax = allowRefund
     ? totalBeforeFranking - (frankingCredit || 0)            // can go negative = refund
     : Math.max(0, totalBeforeFranking - (frankingCredit || 0)); // clamp at zero
-  return { totalTax, incomeTaxAfterOffsets, medicare, offsets, grossIncomeTax };
+  return { totalTax, incomeTaxAfterOffsets, medicare, offsets, grossIncomeTax, lito, sapto };
 }
 
 export function runProjection(state, useRandomReturns = false, seed = 0) {
@@ -427,6 +429,8 @@ export function runProjection(state, useRandomReturns = false, seed = 0) {
     const p1IncomeTax = p1TaxResult.incomeTaxAfterOffsets;
     const p1Medicare = p1TaxResult.medicare;
     const p1Tax = p1TaxResult.totalTax; // may be negative when franking refund exceeds tax
+    const p1LITO = p1TaxResult.lito || 0;
+    const p1SAPTO = p1TaxResult.sapto || 0;
     const p1NetIncome = p1Salary - p1SalSac - p1Tax + (income.person1.taxFreeIncome || 0) + (income.person1.otherTaxable || 0) + (income.person1.rentalIncome || 0) + p1CashDiv;
 
     let p2NetIncome = 0;
@@ -434,6 +438,9 @@ export function runProjection(state, useRandomReturns = false, seed = 0) {
     let p2Medicare = 0;
     let p2Tax = 0;
     let p2Taxable = 0;
+    let p2LITO = 0;
+    let p2SAPTO = 0;
+    let p2Div293 = 0;
     if (isCouple) {
       // Reuse pre-computed p2 basis so family MLS is symmetric with p1's view.
       p2Taxable = p2TaxablePre;
@@ -441,6 +448,8 @@ export function runProjection(state, useRandomReturns = false, seed = 0) {
       p2IncomeTax = p2TaxResult.incomeTaxAfterOffsets;
       p2Medicare = p2TaxResult.medicare;
       p2Tax = p2TaxResult.totalTax;
+      p2LITO = p2TaxResult.lito || 0;
+      p2SAPTO = p2TaxResult.sapto || 0;
       p2NetIncome = p2Salary - p2SalSac - p2Tax + (income.person2.taxFreeIncome || 0) + (income.person2.otherTaxable || 0) + (income.person2.rentalIncome || 0) + p2CashDivPre;
     }
 
@@ -580,7 +589,7 @@ export function runProjection(state, useRandomReturns = false, seed = 0) {
         const cgt2 = (p2IsConversionYear || p2AccType === "ttr") ? 0 : p2SuperBal * p2GrowthRet * 0.10;
         p2SuperBal -= (incomeTax2 + cgt2);
       }
-      const p2Div293 = (p2Salary + (income.person2?.otherTaxable || 0)) > (legislation.superParams.div293Threshold || 250000)
+      p2Div293 = (p2Salary + (income.person2?.otherTaxable || 0)) > (legislation.superParams.div293Threshold || 250000)
         ? (p2SG + p2SalSac) * (legislation.superParams.div293Rate || 0.15) : 0;
       p2SuperBal -= p2Div293;
       p2SuperH = initHoldings(p2SuperBal, p2Profile);
@@ -734,15 +743,37 @@ export function runProjection(state, useRandomReturns = false, seed = 0) {
     // should read those.
     const nominalRow = {
       year, age1, age2, period: y + 1,
-      p1Salary, p2Salary, p1SG, p2SG, p1PensionDraw, p2PensionDraw, agePension, investEarnings: Math.max(0, investEarnings),
+      // ── Income components (gross, before tax) ──
+      p1Salary, p2Salary, p1SG, p2SG,
+      p1Dividends: p1CashDiv,
+      p2Dividends: isCouple ? p2CashDivPre : 0,
+      p1RentalInc: income.person1.rentalIncome || 0,
+      p2RentalInc: isCouple ? (income.person2.rentalIncome || 0) : 0,
+      p1OtherTaxable: income.person1.otherTaxable || 0,
+      p2OtherTaxable: isCouple ? (income.person2.otherTaxable || 0) : 0,
+      p1TaxFreeInc: income.person1.taxFreeIncome || 0,
+      p2TaxFreeInc: isCouple ? (income.person2.taxFreeIncome || 0) : 0,
+      p1PensionDraw, p2PensionDraw, agePension,
+      investEarnings: Math.max(0, investEarnings),
+      // ── Tax detail ──
       p1Taxable, p2Taxable, p1IncomeTax, p2IncomeTax, p1Medicare, p2Medicare, p1Tax, p2Tax,
+      p1LITO, p2LITO, p1SAPTO, p2SAPTO,
+      p1Div293, p2Div293,
       p1SuperContribTax, p2SuperContribTax, totalTax, totalSuperTax,
+      // ── Totals ──
       totalIncome: totalNetIncome, totalExpenses: totalExp + liabilityPayments,
       surplus,
+      // ── Expense breakdown ──
+      lifestyleExpTotal: baseExp,
+      recurringExpTotal: recurringExp,
+      futureExpTotal: futureExp,
+      agedCareExpTotal: agedCareExp,
+      liabilityPayments,
+      // ── Asset pools ──
       p1Super: Math.max(0, p1SuperBal), p2Super: Math.max(0, p2SuperBal),
       p1NonSuper: Math.max(0, p1NonSuperBal), p2NonSuper: Math.max(0, p2NonSuperBal), jointNonSuper: Math.max(0, jointNonSuperBal),
       cashAccount: Math.max(0, cashAccount), debtAccount: Math.max(0, debtAccount),
-      totalAssets, totalLiabilities: totalLiab, deductibleInterest, totalDebtRemaining, liabilityPayments,
+      totalAssets, totalLiabilities: totalLiab, deductibleInterest, totalDebtRemaining,
       netAssets: netInvestmentAssets + lifestyleTotal,
       netInvestmentAssets,
       lifestyleAssets: lifestyleTotal,
