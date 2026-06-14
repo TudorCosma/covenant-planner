@@ -23,6 +23,21 @@ export function wordCount(s) {
   return (s || "").trim().split(/\s+/).filter(Boolean).length;
 }
 
+// ---- Gate normalization --------------------------------------------------
+// Runs before the advice/manipulation gates so trivial evasion can't slip a
+// trigger past the regexes: smart quotes from phone keyboards, doubled
+// spaces, line breaks, and zero-width characters pasted between letters
+// ("sh<U+200B>ould I retire"). The KB matcher already normalizes its input;
+// the gates were the gap. Kept deliberately light — no abbreviation
+// expansion — so it only ever widens what the gates catch.
+export function normalizeForGate(text) {
+  return (text || "")
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")   // strip zero-width chars
+    .replace(/[\u2018\u2019]/g, "'")          // curly apostrophes -> straight
+    .replace(/\s+/g, " ")                      // collapse whitespace/newlines
+    .trim();
+}
+
 // ---- Manipulation / jailbreak detector -----------------------------------
 // Catches attempts to override Covie's rules via prompt injection, roleplay
 // framing, persona swaps, or "developer mode" tricks. Checked BEFORE the
@@ -76,7 +91,8 @@ export const MANIPULATION_TRIGGERS = [
 
 export function isManipulationAttempt(text) {
   if (!text) return false;
-  return MANIPULATION_TRIGGERS.some(rx => rx.test(text));
+  const t = normalizeForGate(text);
+  return MANIPULATION_TRIGGERS.some(rx => rx.test(t));
 }
 
 const _MANIP_LINES = [
@@ -275,7 +291,8 @@ export function isAdviceQuestion(text) {
   if (!text) return false;
   // Triggers always win — they are specific enough that broad educational
   // phrases cannot safely override them. No allowlist short-circuit.
-  return ADVICE_TRIGGERS.some(rx => rx.test(text));
+  const t = normalizeForGate(text);
+  return ADVICE_TRIGGERS.some(rx => rx.test(t));
 }
 
 // ---- Escalation tiers ----------------------------------------------------

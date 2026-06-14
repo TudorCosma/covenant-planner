@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { COLORS } from "../data/themes";
-import { TAB_CONTEXTS, ADVICE_REFERRAL, KNOWLEDGE_BASE, findEducationalAnswer, QUICK_QUESTIONS, TAB_INTROS } from "../data/knowledgeBase";
+import { TAB_CONTEXTS, findEducationalAnswer, QUICK_QUESTIONS, TAB_INTROS } from "../data/knowledgeBase";
 import { COVIE_INTRO, COVIE_DISCLAIMER, INPUT_MAX_WORDS, wordCount, isAdviceQuestion, pickRefusalLine, REFUSAL_ACTIONS, isManipulationAttempt, pickManipulationLine } from "../lib/covieVoice";
 
 // Covie — the AI finance guide. Plain-English education + how-to-use-the-app.
