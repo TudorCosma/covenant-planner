@@ -5,7 +5,7 @@ import {
   COVIE_INTRO, COVIE_DISCLAIMER, INPUT_MAX_WORDS, wordCount,
   isAdviceQuestion, REFUSAL_ACTIONS, ADVICE_LIMIT, ADVICE_REFUSAL_RESPONSES,
   LOCKOUT_MESSAGE, COVENANT_WEALTH_URL,
-  isManipulationAttempt, pickManipulationLine,
+  isManipulationAttempt, pickManipulationLine, MANIPULATION_STRIKE_WEIGHT, MANIPULATION_LOCKOUT_RESPONSE,
   isUrgencyAttempt, pickUrgencyLine,
 } from "../lib/covieVoice";
 
@@ -111,12 +111,18 @@ export function FinancialAssistant({ tab }) {
       return;
     }
 
-    // Manipulation / jailbreak gate — firm flat responses, no strike.
+    // Manipulation / jailbreak gate — 2 strikes on the unified counter (instant lockout).
+    // Deliberate bypass attempts carry more compliance risk than advice questions,
+    // so they hit the limit faster: any single manipulation attempt locks the input.
     if (isManipulationAttempt(userText)) {
+      const newCount = refusalCount + MANIPULATION_STRIKE_WEIGHT;
+      setRefusalCount(newCount);
+      const isFinal = newCount >= ADVICE_LIMIT;
       setMessages(prev => [...prev,
         { role: "user", content: userText },
-        { role: "assistant", content: pickManipulationLine(), kind: "manipulation" },
+        { role: "assistant", content: isFinal ? MANIPULATION_LOCKOUT_RESPONSE : pickManipulationLine(), kind: isFinal ? "final-manipulation" : "manipulation" },
       ]);
+      if (isFinal) triggerLockout();
       return;
     }
 
@@ -228,23 +234,25 @@ export function FinancialAssistant({ tab }) {
                   maxWidth: "90%", padding: "9px 12px",
                   borderRadius: m.role === "user" ? "12px 12px 2px 12px" : "12px 12px 12px 2px",
                   background: m.role === "user" ? COLORS.accent
-                    : m.kind === "urgency"       ? "#fff8e6"
-                    : m.kind === "manipulation"  ? "#7a340010"
-                    : m.kind === "final-refusal" ? "#fdf0f0"
-                    : m.kind === "refusal"       ? `${COLORS.accent}15`
-                    : m.kind === "tab-context"   ? `${COLORS.border}60`
+                    : m.kind === "urgency"            ? "#fff8e6"
+                    : m.kind === "final-manipulation" ? "#fdf0f0"
+                    : m.kind === "manipulation"       ? "#7a340010"
+                    : m.kind === "final-refusal"      ? "#fdf0f0"
+                    : m.kind === "refusal"            ? `${COLORS.accent}15`
+                    : m.kind === "tab-context"        ? `${COLORS.border}60`
                     : COLORS.infoBg || "#ece8e1",
                   color: m.role === "user" ? "#fff" : COLORS.text,
                   fontSize: 12, fontFamily: "'DM Sans', sans-serif", lineHeight: 1.6,
-                  border: m.kind === "urgency"       ? `1px solid #d4a017`
-                        : m.kind === "manipulation"  ? `1px dashed #c07a2a60`
-                        : m.kind === "final-refusal" ? `1px solid #c0524a60`
-                        : m.kind === "refusal"       ? `1px dashed ${COLORS.accent}50`
+                  border: m.kind === "urgency"            ? `1px solid #d4a017`
+                        : m.kind === "final-manipulation" ? `1px solid #c0524a`
+                        : m.kind === "manipulation"       ? `1px dashed #c07a2a60`
+                        : m.kind === "final-refusal"      ? `1px solid #c0524a60`
+                        : m.kind === "refusal"            ? `1px dashed ${COLORS.accent}50`
                         : "none",
                 }}>
                   {renderText(m.content)}
                 </div>
-                {/* Action chips only on 1st refusal, not final (input is locked after final) */}
+                {/* Action chips on 1st advice refusal only — not on final or manipulation messages */}
                 {m.kind === "refusal" && !locked && (
                   <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
                     {REFUSAL_ACTIONS.map(a => (

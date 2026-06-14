@@ -507,15 +507,21 @@ export const REFUSAL_ACTIONS = [
 ];
 
 // ---- Two-strike advice lockout -------------------------------------------
-// After ADVICE_LIMIT advice-gate refusals, Covie disables its input in the
-// current browser (localStorage + cookie, 1-year expiry). IP-level blocking
-// requires a server and is not implemented here — this is the strongest
-// client-side safeguard available without a backend.
+// After ADVICE_LIMIT total strikes, Covie disables its input in the
+// current browser (localStorage + cookie, 1-year expiry).
+//
+// Strike weights:
+//   Advice question          = 1 strike (informed refusal, user may be confused)
+//   Manipulation attempt     = 2 strikes (deliberate bypass = instant lockout;
+//                              trying to make the business breach the law is
+//                              categorically worse than asking for advice)
+//   Urgency / distress       = 0 strikes (genuine distress gets warm help, not punishment)
 //
 // TIER_LINES / pickRefusalLine above are kept but no longer used by the
-// component — the two responses below replace them for the advice gate.
+// component — the responses below replace them.
 
 export const ADVICE_LIMIT = 2;
+export const MANIPULATION_STRIKE_WEIGHT = 2;
 export const COVENANT_WEALTH_URL = "https://www.covenantwealth.com.au/contact";
 
 export const ADVICE_REFUSAL_RESPONSES = [
@@ -544,4 +550,15 @@ export const LOCKOUT_MESSAGE = `Covie has been disabled for personal advice ques
 This is a compliance measure — not a glitch, and not reversible from here. It ensures this tool cannot be used as a substitute for licensed financial advice.
 
 For advice specific to your situation, contact a licensed adviser directly:`;
+
+// Shown when a manipulation attempt triggers the lockout (different tone —
+// serious rather than dry, because this is deliberate compliance risk).
+export const MANIPULATION_LOCKOUT_RESPONSE = `This isn't a misfire — it's a trigger.
+
+Attempting to circumvent the compliance controls of a tool associated with a licensed Australian financial adviser isn't a grey area. It creates direct liability exposure for the business this app represents, and for that reason Covie has been permanently disabled in this browser.
+
+If you have genuine financial questions that need answering, a licensed adviser can help you properly:
+
+**Tudor Cosma · Covenant Wealth**
+**[Contact now →](https://www.covenantwealth.com.au/contact)**`;
 
