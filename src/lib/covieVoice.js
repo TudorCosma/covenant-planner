@@ -500,8 +500,48 @@ export function pickRefusalLine(refusalCount) {
 
 export const COVIE_DISCLAIMER = `_Educational only — not personal advice. For your own situation, talk to a planner._`;
 
-// Quick-action chips shown beneath a refusal (rendered by the component).
+// Quick-action chips shown beneath a 1st refusal (not shown after final warning).
 export const REFUSAL_ACTIONS = [
   { id: "advisor", label: "Find me an adviser →", href: "https://www.covenantwealth.com.au/contact" },
   { id: "lever",   label: "Show me which app lever moves this" },
 ];
+
+// ---- Two-strike advice lockout -------------------------------------------
+// After ADVICE_LIMIT advice-gate refusals, Covie disables its input in the
+// current browser (localStorage + cookie, 1-year expiry). IP-level blocking
+// requires a server and is not implemented here — this is the strongest
+// client-side safeguard available without a backend.
+//
+// TIER_LINES / pickRefusalLine above are kept but no longer used by the
+// component — the two responses below replace them for the advice gate.
+
+export const ADVICE_LIMIT = 2;
+export const COVENANT_WEALTH_URL = "https://www.covenantwealth.com.au/contact";
+
+export const ADVICE_REFUSAL_RESPONSES = [
+  // Strike 1 — explain the law, warm referral to Tudor Cosma
+  `I can't give personal financial advice — not as a matter of preference, but as a matter of law. Under the **Corporations Act 2001**, providing personal financial advice in Australia requires an Australian Financial Services Licence (AFSL) and a Statement of Advice (SOA). I have neither, and this tool was never designed to cross that line.
+
+For advice that's specific to your situation and backed by professional accountability, the person to speak with is **Tudor Cosma at Covenant Wealth** — a licensed financial adviser and the person behind this app.
+
+**[Contact Covenant Wealth →](https://www.covenantwealth.com.au/contact)**
+
+In the meantime, I'm happy to explain any financial concept or show you how the app works.`,
+
+  // Strike 2 — final warning; component triggers lockout immediately after
+  `This is the last time I'll respond to a personal advice question. After this message, Covie will be disabled for advice questions in this browser — a compliance safeguard to ensure nothing here can ever be mistaken for licensed financial guidance.
+
+For advice that's specific to your situation, please reach out directly to a licensed adviser:
+
+**Tudor Cosma · Covenant Wealth**
+**[Contact now →](https://www.covenantwealth.com.au/contact)**
+
+Thank you for using the app. I hope it was useful for exploring your options.`,
+];
+
+export const LOCKOUT_MESSAGE = `Covie has been disabled for personal advice questions in this browser.
+
+This is a compliance measure — not a glitch, and not reversible from here. It ensures this tool cannot be used as a substitute for licensed financial advice.
+
+For advice specific to your situation, contact a licensed adviser directly:`;
+
