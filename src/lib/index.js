@@ -15,3 +15,4 @@ export { calcLoanPayoff, getMonthlyEquiv } from "./loans";
 export { boxMullerRandom } from "./monteCarlo";
 export { runProjection } from "./projection";
 export { buildDeficitInfo } from "./deficit";
+export { exportPlanToExcel } from "./excelExport";

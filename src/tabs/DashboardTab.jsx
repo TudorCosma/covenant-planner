@@ -5,7 +5,7 @@ import { TABS } from "../data/tabs";
 import { ASSET_LABELS, DEFAULT_RETURN_PROFILES, DEFAULT_ASSET_RETURNS, normalizeReturnProfiles, normalizeAccountProfile } from "../data/returnProfiles";
 import { DEFAULT_TAX_BRACKETS_2024, DEFAULT_SUPER_PARAMS, DEFAULT_CENTRELINK, DEFAULT_MEDICARE } from "../data/tax2024";
 import { Input, DateInput, FYInput, Select, Card, StatCard, Btn, Modal, HeaderBtn, ScenarioToggle, ReturnSummary, FinancialAssistant, DeficitWarningBadge, MortgageStressBadge, GoalProgress, ScenarioButtons } from "../components";
-import { fmt, pct, calcIncomeTax, calcMedicare, boxMullerRandom, calcDeprivedAssets, calcCentrelinkPension, calcDeemedIncome, getMonthlyEquiv, calcLoanPayoff, runProjection, buildDeficitInfo } from "../lib";
+import { fmt, pct, calcIncomeTax, calcMedicare, boxMullerRandom, calcDeprivedAssets, calcCentrelinkPension, calcDeemedIncome, getMonthlyEquiv, calcLoanPayoff, runProjection, buildDeficitInfo, exportPlanToExcel } from "../lib";
 import { coercePlanState } from "../lib/persistence";
 export function DashboardTab({ state: nowState, projectionData: nowProjectionData, afterProjectionData, afterState, scenario, setState: setNowState, setAfterState, setTab }) {
   // Build deficit diagnostics for both scenarios so cards/charts can flag unsustainable plans.
@@ -835,6 +835,9 @@ export function DashboardTab({ state: nowState, projectionData: nowProjectionDat
             <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
               <button onClick={() => setShowReport(hasChange ? true : "no-changes")} style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: "none", background: COLORS.accent, color: "#fff", fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", cursor: "pointer" }}>
                 📋 Action Plan
+              </button>
+              <button onClick={() => exportPlanToExcel({ nowState, afterState, nowProjectionData, afterProjectionData })} style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: "none", background: COLORS.green, color: "#fff", fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", cursor: "pointer" }}>
+                ⬇ Download Excel
               </button>
               <button onClick={() => setShowSaveLoad("save")} style={{ padding: "10px 12px", borderRadius: 8, border: `1px solid ${COLORS.accent}`, background: "transparent", color: COLORS.accent, fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", cursor: "pointer" }}>
                 💾 Save

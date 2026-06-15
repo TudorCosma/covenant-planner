@@ -4,7 +4,7 @@ import { COLORS, THEMES } from "../data/themes";
 import { TABS } from "../data/tabs";
 import { ASSET_LABELS, DEFAULT_RETURN_PROFILES, DEFAULT_ASSET_RETURNS, profileDisplayLabel } from "../data/returnProfiles";
 import { Input, DateInput, FYInput, YearSelect, Select, Card, StatCard, Btn, Modal, HeaderBtn, ScenarioToggle, ReturnSummary, FinancialAssistant, DeficitWarningModal, DeficitWarningBadge } from "../components";
-import { fmt, pct, calcIncomeTax, calcMedicare, boxMullerRandom, calcDeprivedAssets, calcCentrelinkPension, calcDeemedIncome, getMonthlyEquiv, calcLoanPayoff, runProjection, buildDeficitInfo } from "../lib";
+import { fmt, pct, calcIncomeTax, calcMedicare, boxMullerRandom, calcDeprivedAssets, calcCentrelinkPension, calcDeemedIncome, getMonthlyEquiv, calcLoanPayoff, runProjection, buildDeficitInfo, exportPlanToExcel } from "../lib";
 export function ProjectionsTab({ state: nowState, setState: setNowState, setAfterState, projectionData: nowProjectionData, afterProjectionData, scenario, afterState, onActivateAfter, onActivateNow, onResetAfter, setTab }) {
   const [view, setView] = useState("chart");
   const [showDetail, setShowDetail] = useState(false);
@@ -345,6 +345,7 @@ export function ProjectionsTab({ state: nowState, setState: setNowState, setAfte
             <Btn active={showDetail} onClick={() => setShowDetail(true)} style={{ fontSize: 10 }}>Detail</Btn>
             <div style={{ width: 1, height: 20, background: COLORS.border, margin: "0 4px" }} />
             <Btn onClick={exportCSV} style={{ fontSize: 10 }}>⬇ Export CSV</Btn>
+            <Btn onClick={() => exportPlanToExcel({ nowState, afterState, nowProjectionData, afterProjectionData })} style={{ fontSize: 10 }}>⬇ Excel</Btn>
           </>
         )}
         {afterProjectionData && (
